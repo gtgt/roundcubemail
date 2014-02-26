@@ -1819,7 +1819,7 @@ class rcube_imap_generic
             if (preg_match('/^\* ([0-9]+) FETCH/', $line, $m)) {
                 $id     = $m[1];
                 $flags  = NULL;
-
+								//* 8686 FETCH (UID 133042 RFC822.SIZE 7974)
                 if ($return_uid) {
                     if (preg_match('/UID ([0-9]+)/', $line, $matches))
                         $id = (int) $matches[1];
@@ -1854,8 +1854,8 @@ class rcube_imap_generic
                         $result[$id] = '';
                     }
                 } else if ($mode == 2) {
-                    if (preg_match('/(UID|RFC822\.SIZE) ([0-9]+)/', $line, $matches)) {
-                        $result[$id] = trim($matches[2]);
+                    if (preg_match_all('/(UID|RFC822\.SIZE) ([0-9]+)/', $line, $matches, PREG_SET_ORDER)) {
+                        $result[$id] = trim($index_field == 'UID' ? $matches[0][2] : $matches[1][2]);
                     } else {
                         $result[$id] = 0;
                     }

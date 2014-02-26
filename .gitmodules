@@ -1,0 +1,6 @@
+[submodule "kolab"]
+	path = kolab
+	url = git://git.kolab.org/git/roundcubemail-plugins-kolab
+[submodule "plugins/sauserprefs"]
+	path = plugins/sauserprefs
+	url = https://github.com/JohnDoh/Roundcube-Plugin-SpamAssassin-User-Prefs-SQL.git
