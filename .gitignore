@@ -4,21 +4,22 @@ temp/*
 config/*
 plugins/*/config.inc.php
 
-# this is for the sample plugin (via composer)
-plugins/rcsample
-plugins/plugin_manager
-
 # composer-related
 composer.json
 composer.phar
 composer.lock
 vendor
 
-plugins/sauserprefs
 kolab
+kolab-chwala
 
+skins/flow
+
+favicon.ico
 kani_icon.ico
 kani_logo.png
+kani_logo_black.png
+
 plugins/calendar
 plugins/kolab_activesync
 plugins/kolab_addressbook
@@ -37,3 +38,9 @@ plugins/pdfviewer
 plugins/piwik_analytics
 plugins/tasklist
 plugins/tinymce_config
+plugins/sauserprefs
+
+# this is for the sample plugin (via composer)
+plugins/rcsample
+plugins/plugin_manager
+

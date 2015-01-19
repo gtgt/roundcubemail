@@ -25,7 +25,15 @@ php_value	session.gc_probability	1
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteRule ^favicon\.ico$ skins/larry/images/favicon.ico
+
+#RewriteRule /kolab-chwala/?(.*) kolab-chwala/public_html/$1
+
+#RewriteRule ^favicon\.ico$ skins/larry/images/favicon.ico
+
+RewriteRule skins/(classic|larry)/images/favicon.ico /favicon.ico [R,L]
+
+RewriteRule skins/classic/images/roundcube_logo.png /kani_logo_black.png [R,L]
+RewriteRule skins/larry/images/roundcube_logo.png /kani_logo.png [R,L]
 
 # security rules:
 # - deny access to files not containing a dot or starting with a dot
@@ -35,6 +43,7 @@ RewriteRule ^(?!installer)(\.?[^\.]+)$ - [F]
 RewriteRule ^/?(\.git|\.tx|SQL|bin|config|logs|temp|tests|program\/(include|lib|localization|steps)) - [F]
 # - deny access to some documentation files
 RewriteRule /?(README\.md|composer\.json-dist|composer\.json|package\.xml)$ - [F]
+
 </IfModule>
 
 <IfModule mod_deflate.c>

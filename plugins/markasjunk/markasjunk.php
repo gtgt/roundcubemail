@@ -69,7 +69,31 @@ class markasjunk extends rcube_plugin
       $rcmail->output->command('move_messages', $junk_mbox);
     }
 
-    $rcmail->output->command('display_message', $this->gettext('reportedasjunk'), 'confirmation');
+    //$rcmail->output->command('display_message', $this->gettext('reportedasjunk'), 'confirmation');
+    //$rcmail->output->send();
+		//return;
+
+    foreach (explode(',', $uids) as $uid) {
+      //$headers = $rcmail->storage->get_message($uid);
+      //$rcmail->output->command('display_message', nl2br(print_r($headers->others,1)));
+      //$rcmail->output->send();
+      //return;
+      if (file_put_contents($filename = tempnam('/tmp', 'rcube_'), $rcmail->imap->get_raw_body($uid))) {
+        $username = $rcmail->user->data['username'];
+        if ($mbox != $junk_mbox) {
+          $out = shell_exec($cmd = "spamc --socket=/run/spamd.sock --username=$username --log-to-stderr --learntype=spam < $filename");
+          $out .= "<br />";
+          $out .= shell_exec($cmd = "spamc --socket=/run/spamd.sock --username=$username --log-to-stderr --reporttype=report < $filename");
+        } else {
+          $out = shell_exec($cmd = "spamc --socket=/run/spamd.sock --username=$username --log-to-stderr --learntype=ham < $filename");
+          $out .= "<br />";
+          $out = shell_exec($cmd = "spamc --socket=/run/spamd.sock --username=$username --log-to-stderr --reporttype=revoke < $filename");
+        }
+        @unlink($filename);
+      }
+    }
+
+    $rcmail->output->command('display_message', $this->gettext('reportedasjunk')."&nbsp;&nbsp;".(isset($out) ? "<small>$out</small>" : ''), 'confirmation');
     $rcmail->output->send();
   }
 
