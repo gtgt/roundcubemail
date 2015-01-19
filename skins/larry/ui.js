@@ -52,7 +52,7 @@ function rcube_mail_ui()
   // set minimal mode on small screens (don't wait for document.ready)
   if (window.$ && document.body) {
     var minmode = get_pref('minimalmode');
-    if (parseInt(minmode) || (minmode === null && $(window).height() < 850)) {
+    if ((typeof(minmode) == 'undefined') || parseInt(minmode) || (minmode === null && $(window).height() < 850)) {
       $(document.body).addClass('minimal');
     }
 
