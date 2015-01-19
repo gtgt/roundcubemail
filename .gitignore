@@ -10,8 +10,8 @@ composer.phar
 composer.lock
 vendor
 
-kolab
-kolab-chwala
+#kolab
+#kolab-chwala
 
 skins/flow
 
@@ -38,7 +38,7 @@ plugins/pdfviewer
 plugins/piwik_analytics
 plugins/tasklist
 plugins/tinymce_config
-plugins/sauserprefs
+#plugins/sauserprefs
 
 # this is for the sample plugin (via composer)
 plugins/rcsample
