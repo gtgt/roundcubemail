@@ -28,10 +28,9 @@
  * @category  Encryption
  * @package   Crypt_GPG
  * @author    Nathan Fredrickson <nathan@silverorange.com>
- * @author    Michael Gauthier <mike@silverorange.com>
- * @copyright 2005-2013 silverorange
+ * @copyright 2005-2010 silverorange
  * @license   http://www.gnu.org/copyleft/lesser.html LGPL License 2.1
- * @version   CVS: $Id$
+ * @version   CVS: $Id: Signature.php 302773 2010-08-25 14:16:28Z gauthierm $
  * @link      http://pear.php.net/package/Crypt_GPG
  */
 
@@ -51,7 +50,7 @@ require_once 'Crypt/GPG/UserId.php';
  * @package   Crypt_GPG
  * @author    Nathan Fredrickson <nathan@silverorange.com>
  * @author    Michael Gauthier <mike@silverorange.com>
- * @copyright 2005-2013 silverorange
+ * @copyright 2005-2010 silverorange
  * @license   http://www.gnu.org/copyleft/lesser.html LGPL License 2.1
  * @link      http://pear.php.net/package/Crypt_GPG
  * @see       Crypt_GPG::verify()
@@ -160,6 +159,8 @@ class Crypt_GPG_Signature
 
             if ($signature->_userId instanceof Crypt_GPG_UserId) {
                 $this->_userId = clone $signature->_userId;
+            } else {
+                $this->_userId = $signature->_userId;
             }
         }
 

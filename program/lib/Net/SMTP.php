@@ -124,6 +124,7 @@ class Net_SMTP
      * @access private
      */
     var $_code = -1;
+	var $response = "";
 
     /**
      * The most recent server response arguments.
@@ -349,7 +350,8 @@ class Net_SMTP
                     $this->_code = (int)$code;
                 } else {
                     $this->_code = -1;
-                    break;
+	                $oLine = $line;
+	                break;
                 }
 
                 /* If this is not a multiline response, we're done. */
@@ -368,8 +370,7 @@ class Net_SMTP
             return true;
         }
 
-        return PEAR::raiseError('Invalid response code received from server',
-                                $this->_code, PEAR_ERROR_RETURN);
+        return PEAR::raiseError($oLine, $oLine, PEAR_ERROR_RETURN);
     }
 
     /**

@@ -1,6 +1,6 @@
 <?php
 
-/**
+/*
  +-----------------------------------------------------------------------+
  | This file is part of the Roundcube Webmail client                     |
  | Copyright (C) 2005-2012, The Roundcube Dev Team                       |
@@ -166,5 +166,25 @@ class rcube_db_mssql extends rcube_db
         }
 
         return $result;
+    }
+
+    /**
+     * Parse SQL file and fix table names according to table prefix
+     */
+    protected function fix_table_names($sql)
+    {
+        if (!$this->options['table_prefix']) {
+            return $sql;
+        }
+
+        // replace sequence names, and other postgres-specific commands
+        $sql = preg_replace_callback(
+            '/((TABLE|(?<!ON )UPDATE|INSERT INTO|FROM(?! deleted)| ON(?! (DELETE|UPDATE|\[PRIMARY\]))'
+            . '|REFERENCES|CONSTRAINT|TRIGGER|INDEX)\s+(\[dbo\]\.)?[\[\]]*)([^\[\]\( \r\n]+)/',
+            array($this, 'fix_table_names_callback'),
+            $sql
+        );
+
+        return $sql;
     }
 }

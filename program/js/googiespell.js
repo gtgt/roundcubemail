@@ -1,23 +1,36 @@
-/*
- +-----------------------------------------------------------------------+
- | Roundcube SpellCheck script                                           |
- |   jQuery'fied spell checker based on GoogieSpell 4.0                  |
- |    (which was published under GPL "version 2 or any later version")   |
- |                                                                       |
- | This file is part of the Roundcube Webmail client                     |
- | Copyright (C) 2006 Amir Salihefendic                                  |
- | Copyright (C) 2009 The Roundcube Dev Team                             |
- | Copyright (C) 2011 Kolab Systems AG                                   |
- |                                                                       |
- | Licensed under the GNU General Public License version 3 or            |
- | any later version with exceptions for skins & plugins.                |
- | See the README file for a full license statement.                     |
- |                                                                       |
- +-----------------------------------------------------------------------+
- | Authors: 4mir Salihefendic <amix@amix.dk>                             |
- |          Aleksander Machniak - <alec [at] alec.pl>                    |
- +-----------------------------------------------------------------------+
-*/
+/**
+ * Roundcube SpellCheck script
+ *
+ * jQuery'fied spell checker based on GoogieSpell 4.0
+ * (which was published under GPL "version 2 or any later version")
+ *
+ * @licstart  The following is the entire license notice for the
+ * JavaScript code in this file.
+ *
+ * Copyright (C) 2006 Amir Salihefendic
+ * Copyright (C) 2009 The Roundcube Dev Team
+ * Copyright (C) 2011 Kolab Systems AG
+ *
+ * The JavaScript code in this page is free software: you can
+ * redistribute it and/or modify it under the terms of the GNU
+ * General Public License (GNU GPL) as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.  The code is distributed WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+ *
+ * As additional permission under GNU GPL version 3 section 7, you
+ * may distribute non-source (e.g., minimized or compacted) forms of
+ * that code without the copy of the GNU GPL normally required by
+ * section 4, provided you include this license notice and a URL
+ * through which recipients can access the Corresponding Source.
+ *
+ * @licend  The above is the entire license notice
+ * for the JavaScript code in this file.
+ *
+ * @author 4mir Salihefendic <amix@amix.dk> 
+ * @author Aleksander Machniak - <alec [at] alec.pl>
+ */
 
 var GOOGIE_CUR_LANG,
     GOOGIE_DEFAULT_LANG = 'en';
@@ -289,6 +302,7 @@ this.prepare = function(ignore, no_indicator)
     this.cnt_errors_fixed = 0;
     this.cnt_errors = 0;
     this.setStateChanged('checking_spell');
+    this.orginal_text = '';
 
     if (!no_indicator && this.main_controller)
         this.appendIndicator(this.spell_span);
@@ -298,7 +312,9 @@ this.prepare = function(ignore, no_indicator)
     this.ignore = ignore;
     this.hideLangWindow();
 
-    if ($(this.text_area).val() == '' || ignore) {
+    var area = $(this.text_area);
+
+    if (area.val() == '' || ignore) {
         if (!this.custom_no_spelling_error)
             this.flashNoSpellingErrorState();
         else
@@ -307,7 +323,7 @@ this.prepare = function(ignore, no_indicator)
         return;
     }
 
-    this.createEditLayer(this.text_area.offsetWidth, this.text_area.offsetHeight);
+    this.createEditLayer(area.width(), area.height());
     this.createErrorWindow();
     $('body').append(this.error_window);
 
@@ -317,7 +333,7 @@ this.prepare = function(ignore, no_indicator)
     if (this.main_controller)
         $(this.spell_span).unbind('click');
 
-    this.orginal_text = $(this.text_area).val();
+    this.orginal_text = area.val();
 };
 
 this.parseResult = function(r_text)
@@ -524,7 +540,7 @@ this.showErrorWindow = function(elm, id)
             $(dummy).html(suggestions[i]);
 
             $(item).mouseover(this.item_onmouseover).mouseout(this.item_onmouseout)
-        	    .click(function(e) { ref.correctError(id, elm, e.target.firstChild) });
+              .click(function(e) { ref.correctError(id, elm, e.target.firstChild) });
 
             item.appendChild(dummy);
             row.appendChild(item);
@@ -565,14 +581,15 @@ this.showErrorWindow = function(elm, id)
                     ref.saveOldValue(elm, elm.innerHTML);
 
                 ref.updateOrginalText(offset, elm.innerHTML, edit_input.value, id);
-                $(elm).attr('is_corrected', true).css('color', 'green').html(edit_input.value);
+                $(elm).attr('is_corrected', true).css('color', 'green').text(edit_input.value);
                 ref.hideErrorWindow();
             }
             return false;
         };
 
-        $(edit_input).width(120).css({'margin': 0, 'padding': 0});
-        $(edit_input).val(elm.innerHTML).attr('googie_action_btn', '1');
+        $(edit_input).width(120)
+          .css({'margin': 0, 'padding': 0})
+          .val($(elm).text()).attr('googie_action_btn', '1');
         $(edit).css('cursor', 'default').attr('googie_action_btn', '1');
 
         $(ok_pic).attr('src', this.img_dir + 'ok.gif')
@@ -659,10 +676,10 @@ this.createEditLayer = function(width, height)
 {
     this.edit_layer = document.createElement('div');
     $(this.edit_layer).addClass('googie_edit_layer').attr('id', 'googie_edit_layer')
-        .width('auto').height(height);
+        .width(width).height(height);
 
     if (this.text_area.nodeName.toLowerCase() != 'input' || $(this.text_area).val() == '') {
-        $(this.edit_layer).css('overflow', 'auto').height(height-4);
+        $(this.edit_layer).css('overflow', 'auto');
     } else {
         $(this.edit_layer).css('overflow', 'hidden');
     }
