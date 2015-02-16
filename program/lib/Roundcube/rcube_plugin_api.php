@@ -374,9 +374,11 @@ class rcube_plugin_api
      */
     public function unregister_hook($hook, $callback)
     {
-        $callback_id = array_search($callback, $this->handlers[$hook]);
+        $callback_id = array_search($callback, (array) $this->handlers[$hook]);
         if ($callback_id !== false) {
-            unset($this->handlers[$hook][$callback_id]);
+            // array_splice() removes the element and re-indexes keys
+            // that is required by the 'for' loop in exec_hook() below
+            array_splice($this->handlers[$hook], $callback_id, 1);
         }
     }
 
@@ -395,13 +397,14 @@ class rcube_plugin_api
             $args = array('arg' => $args);
         }
 
-        // TODO: avoid recusion by checking in_array($hook, $this->exec_stack) ?
+        // TODO: avoid recursion by checking in_array($hook, $this->exec_stack) ?
 
         $args += array('abort' => false);
         array_push($this->exec_stack, $hook);
 
-        foreach ((array)$this->handlers[$hook] as $callback) {
-            $ret = call_user_func($callback, $args);
+        // Use for loop here, so handlers added in the hook will be executed too
+        for ($i = 0; $i < count($this->handlers[$hook]); $i++) {
+            $ret = call_user_func($this->handlers[$hook][$i], $args);
             if ($ret && is_array($ret)) {
                 $args = $ret + $args;
             }

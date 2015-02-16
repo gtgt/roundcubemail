@@ -1,5 +1,3 @@
-// @license http://creativecommons.org/publicdomain/zero/1.0/legalcode CC0
-
 /**
  * Roundcube functions for default skin interface
  *
@@ -9,6 +7,8 @@
  * License. It is allowed to copy, distribute, transmit and to adapt the work
  * by keeping credits to the original autors in the README file.
  * See http://creativecommons.org/licenses/by-sa/3.0/ for details.
+ *
+ * @license magnet:?xt=urn:btih:90dc5c0be029de84e523b9b3922520e79e0e6f08&dn=cc0.txt CC0-1.0
  */
 
 function rcube_mail_ui()
@@ -277,19 +277,22 @@ function rcube_mail_ui()
           orientation:'v', relative:true, start:266, min:180, size:12 }).init();
       }
       else if (rcmail.env.action == 'edit-prefs') {
-        $('<a href="#toggle"></a>')
+        var legend = $('#preferences-details fieldset.advanced legend'),
+          toggle = $('<a href="#toggle"></a>')
             .text(env.toggleoptions)
             .attr('title', env.toggleoptions)
-            .addClass('advanced-toggle')
-            .appendTo('#preferences-details fieldset.advanced legend');
+            .addClass('advanced-toggle');
 
-          $('#preferences-details fieldset.advanced legend').click(function(e){
-            var collapsed = $(this).hasClass('collapsed'),
-              toggle = $('.advanced-toggle', this).html(collapsed ? '&#9650;' : '&#9660;');
-            $(this)
-              .toggleClass('collapsed')
-              .closest('fieldset').children('.propform').toggle()
-          }).addClass('collapsed')
+        legend.click(function(e) {
+          toggle.html($(this).hasClass('collapsed') ? '&#9650;' : '&#9660;');
+
+          $(this).toggleClass('collapsed')
+            .closest('fieldset').children('.propform').toggle()
+        }).append(toggle).addClass('collapsed')
+
+        // this magically fixes incorrect position of toggle link created above in Firefox 3.6
+        if (bw.mz)
+          legend.parents('form').css('display', 'inline');
       }
     }
     /***  addressbook task  ***/

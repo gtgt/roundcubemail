@@ -53,13 +53,14 @@ if (!is_array($COMPOSE)) {
     }
 
     $COMPOSE_ID = uniqid(mt_rand());
+    $params     = rcube_utils::request2param(rcube_utils::INPUT_GET, 'task|action', true);
+
     $_SESSION['compose_data_'.$COMPOSE_ID] = array(
         'id'      => $COMPOSE_ID,
-        'param'   => rcube_utils::request2param(rcube_utils::INPUT_GET, 'task|action', true),
-        'mailbox' => $RCMAIL->storage->get_folder(),
+        'param'   => $params,
+        'mailbox' => $params['mbox'] ?: $RCMAIL->storage->get_folder(),
     );
     $COMPOSE =& $_SESSION['compose_data_'.$COMPOSE_ID];
-
     rcmail_process_compose_params($COMPOSE);
 
     // check if folder for saving sent messages exists and is subscribed (#1486802)
@@ -322,13 +323,18 @@ foreach ($parts as $header) {
                 $fvalue = $mailfollowup;
             else if ($mailreplyto)
                 $fvalue = $mailreplyto;
-            else if (!empty($MESSAGE->headers->replyto))
-                $fvalue = $MESSAGE->headers->replyto;
+            else if (!empty($MESSAGE->headers->replyto)) {
+                $fvalue  = $MESSAGE->headers->replyto;
+                $replyto = true;
+            }
             else if (!empty($MESSAGE->headers->from))
                 $fvalue = $MESSAGE->headers->from;
 
             // Reply to message sent by yourself (#1487074, #1489230)
-            if (!empty($ident) && in_array($ident['ident'], array($fvalue, $MESSAGE->headers->from))) {
+            // Reply-To address need to be unset (#1490233)
+            if (!empty($ident) && empty($replyto)
+                && in_array($ident['ident'], array($fvalue, $MESSAGE->headers->from))
+            ) {
                 $fvalue = $MESSAGE->headers->to;
             }
         }
