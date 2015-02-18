@@ -27,7 +27,9 @@ php_value   session.gc_probability   1
 Options +FollowSymLinks
 RewriteEngine On
 
-#RewriteRule /kolab-chwala/?(.*) kolab-chwala/public_html/$1
+RewriteRule ^kolab-chwala/?$ /kolab-chwala/public_html/index.php [L,R]
+RewriteCond %{REQUEST_URI} !^/kolab-chwala/public_html
+RewriteRule ^kolab-chwala/(.*)$ /kolab-chwala/public_html/$1 [L,R]
 
 #RewriteRule ^favicon\.ico$ skins/larry/images/favicon.ico
 
