@@ -18,4 +18,5 @@
 $labels['buttontext'] = 'Levélszemét';
 $labels['buttontitle'] = 'Szemétnek jelölés';
 $labels['reportedasjunk'] = 'Sikeresen szemétnek jelentve';
+$labels['reportedasnonjunk'] = 'Sikeresen megtanítva, hogy a levél nem spam.';
 ?>

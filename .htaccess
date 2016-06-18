@@ -23,20 +23,34 @@ php_value   session.gc_divisor       500
 php_value   session.gc_probability   1
 </IfModule>
 
-<IfModule mod_rewrite.c>
-Options +FollowSymLinks
+#<IfModule mod_rewrite.c>
+#Options +FollowSymLinks -Indexes
+
+DirectoryIndex index.php
+
 RewriteEngine On
 
-RewriteRule ^kolab-chwala/?$ /kolab-chwala/public_html/index.php [L,R]
-RewriteCond %{REQUEST_URI} !^/kolab-chwala/public_html
-RewriteRule ^kolab-chwala/(.*)$ /kolab-chwala/public_html/$1 [L,R]
+#RewriteCond %{REQUEST_URI} ^/kolab-chwala(.*)
+#RewriteCond %{REQUEST_URI} !^/kolab-chwala/public_html
+#RewriteRule ^kolab-chwala/?(.*)/?$ kolab-chwala/public_html/$1 [R]
+
+#RewriteCond %{REQUEST_FILENAME} -d
+#RewriteCond %{REQUEST_URI} ^/kolab-chwala(.*)
+#RewriteRule ^(.*)$ $1/index.php [PT]
+
+
+#RewriteCond %{REQUEST_URI} !^/kolab-chwala/public_html
+#RewriteRule ^kolab-chwala/(.*)$ /kolab-chwala/public_html/$1 [L,R]
 
 #RewriteRule ^favicon\.ico$ skins/larry/images/favicon.ico
 
-RewriteRule skins/(classic|larry)/images/favicon.ico /favicon.ico [R,L]
+RewriteRule skins/(classic|larry|googie)/images/favicon.ico /favicon.ico [R,L]
 
-RewriteRule skins/classic/images/roundcube_logo.png /kani_logo_black.png [R,L]
-RewriteRule skins/larry/images/roundcube_logo.png /kani_logo.png [R,L]
+RewriteCond %{REQUEST_URI} /skins/(classic|googie)/images/roundcube_logo.png
+RewriteRule . /kani_logo_black.png [R,L]
+
+RewriteCond %{REQUEST_URI} /skins/larry/images/roundcube_logo.png
+RewriteRule . /kani_logo.png [R,L]
 
 # security rules:
 # - deny access to files not containing a dot or starting with a dot
@@ -46,7 +60,7 @@ RewriteRule ^(?!installer|[a-f0-9]{16})(\.?[^\.]+)$ - [F]
 RewriteRule ^/?(\.git|\.tx|SQL|bin|config|logs|temp|tests|program\/(include|lib|localization|steps)) - [F]
 # - deny access to some documentation files
 RewriteRule /?(README\.md|composer\.json-dist|composer\.json|package\.xml)$ - [F]
-</IfModule>
+#</IfModule>
 
 <IfModule mod_deflate.c>
 SetOutputFilter DEFLATE

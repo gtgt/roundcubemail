@@ -48,5 +48,10 @@ if (!class_exists('Memcache') && class_exists('Memcached')) {
 			if (($compress && !($flag & MEMCACHE_COMRESSED)) || (!$compress && ($flag & MEMCACHE_COMRESSED))) $this->setOption(Memcached::OPT_COMPRESSION, $compress);
 			return $result;
 		}
+		
+		public function getStats() {
+			$stats = array_values(parent::getStats());
+			return $stats[0];
+		}
 	}
 } 
