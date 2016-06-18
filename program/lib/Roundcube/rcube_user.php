@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | This file is part of the Roundcube Webmail client                     |
  | Copyright (C) 2005-2012, The Roundcube Dev Team                       |
@@ -29,6 +29,7 @@ class rcube_user
     public $ID;
     public $data;
     public $language;
+    public $prefs;
 
     /**
      * Holds database connection.
@@ -132,10 +133,14 @@ class rcube_user
      */
     function get_prefs()
     {
-        $prefs = array();
+        if (isset($this->prefs)) {
+            return $this->prefs;
+        }
+
+        $this->prefs = array();
 
         if (!empty($this->language))
-            $prefs['language'] = $this->language;
+            $this->prefs['language'] = $this->language;
 
         if ($this->ID) {
             // Preferences from session (write-master is unavailable)
@@ -153,20 +158,22 @@ class rcube_user
             }
 
             if ($this->data['preferences']) {
-                $prefs += (array)unserialize($this->data['preferences']);
+                $this->prefs += (array)unserialize($this->data['preferences']);
             }
         }
 
-        return $prefs;
+        return $this->prefs;
     }
 
     /**
      * Write the given user prefs to the user's record
      *
      * @param array $a_user_prefs User prefs to save
+     * @param bool  $no_session   Simplified language/preferences handling
+     *
      * @return boolean True on success, False on failure
      */
-    function save_prefs($a_user_prefs)
+    function save_prefs($a_user_prefs, $no_session = false)
     {
         if (!$this->ID)
             return false;
@@ -183,45 +190,53 @@ class rcube_user
         $config       = $this->rc->config;
 
         // merge (partial) prefs array with existing settings
-        $save_prefs = $a_user_prefs + $old_prefs;
+        $this->prefs = $save_prefs = $a_user_prefs + $old_prefs;
         unset($save_prefs['language']);
 
         // don't save prefs with default values if they haven't been changed yet
         foreach ($a_user_prefs as $key => $value) {
-            if ($value === null || (!isset($old_prefs[$key]) && ($value == $config->get($key))))
+            if ($value === null || (!isset($old_prefs[$key]) && ($value == $config->get($key)))) {
                 unset($save_prefs[$key]);
+            }
         }
 
         $save_prefs = serialize($save_prefs);
+        if (!$no_session) {
+            $this->language = $_SESSION['language'];
+        }
 
         $this->db->query(
             "UPDATE ".$this->db->table_name('users', true).
             " SET `preferences` = ?, `language` = ?".
             " WHERE `user_id` = ?",
             $save_prefs,
-            $_SESSION['language'],
+            $this->language,
             $this->ID);
-
-        $this->language = $_SESSION['language'];
 
         // Update success
         if ($this->db->affected_rows() !== false) {
-            $config->set_user_prefs($a_user_prefs);
             $this->data['preferences'] = $save_prefs;
 
-            if (isset($_SESSION['preferences'])) {
-                $this->rc->session->remove('preferences');
-                $this->rc->session->remove('preferences_time');
+            if (!$no_session) {
+                $config->set_user_prefs($this->prefs);
+
+                if (isset($_SESSION['preferences'])) {
+                    $this->rc->session->remove('preferences');
+                    $this->rc->session->remove('preferences_time');
+                }
             }
+
             return true;
         }
         // Update error, but we are using replication (we have read-only DB connection)
         // and we are storing session not in the SQL database
         // we can store preferences in session and try to write later (see get_prefs())
-        else if ($this->db->is_replicated() && $config->get('session_storage', 'db') != 'db') {
+        else if (!$no_session && $this->db->is_replicated()
+            && $config->get('session_storage', 'db') != 'db'
+        ) {
             $_SESSION['preferences'] = $save_prefs;
             $_SESSION['preferences_time'] = time();
-            $config->set_user_prefs($a_user_prefs);
+            $config->set_user_prefs($this->prefs);
             $this->data['preferences'] = $save_prefs;
         }
 
@@ -229,12 +244,19 @@ class rcube_user
     }
 
     /**
-     * Generate a unique hash to identify this user which
+     * Generate a unique hash to identify this user whith
      */
     function get_hash()
     {
-        $key = substr($this->rc->config->get('des_key'), 1, 4);
-        return md5($this->data['user_id'] . $key . $this->data['username'] . '@' . $this->data['mail_host']);
+        $prefs = $this->get_prefs();
+
+        // generate a random hash and store it in user prefs
+        if (empty($prefs['client_hash'])) {
+            $prefs['client_hash'] = md5($this->data['username'] . mt_rand() . $this->data['mail_host']);
+            $this->save_prefs(array('client_hash' => $prefs['client_hash']));
+        }
+
+        return $prefs['client_hash'];
     }
 
     /**
@@ -460,11 +482,61 @@ class rcube_user
     }
 
     /**
+     * Update user's failed_login timestamp and counter
+     */
+    function failed_login()
+    {
+        if ($this->ID && ($rate = (int) $this->rc->config->get('login_rate_limit', 3))) {
+            if (empty($this->data['failed_login'])) {
+                $failed_login = new DateTime('now');
+                $counter      = 1;
+            }
+            else {
+                $failed_login = new DateTime($this->data['failed_login']);
+                $threshold    = new DateTime('- 60 seconds');
+
+                if ($failed_login < $threshold) {
+                    $failed_login = new DateTime('now');
+                    $counter      = 1;
+                }
+            }
+
+            $this->db->query(
+                "UPDATE " . $this->db->table_name('users', true)
+                    . " SET `failed_login` = " . $this->db->fromunixtime($failed_login->format('U'))
+                    . ", `failed_login_counter` = " . ($counter ?: "`failed_login_counter` + 1")
+                . " WHERE `user_id` = ?",
+                $this->ID);
+        }
+    }
+
+    /**
+     * Checks if the account is locked, e.g. as a result of brute-force prevention
+     */
+    function is_locked()
+    {
+        if (empty($this->data['failed_login'])) {
+            return false;
+        }
+
+        if ($rate = (int) $this->rc->config->get('login_rate_limit', 3)) {
+            $last_failed = new DateTime($this->data['failed_login']);
+            $threshold   = new DateTime('- 60 seconds');
+
+            if ($last_failed > $threshold && $this->data['failed_login_counter'] >= $rate) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Clear the saved object state
      */
     function reset()
     {
-        $this->ID = null;
+        $this->ID   = null;
         $this->data = null;
     }
 
@@ -497,10 +569,11 @@ class rcube_user
         }
 
         // user already registered -> overwrite username
-        if ($sql_arr)
+        if ($sql_arr) {
             return new rcube_user($sql_arr['user_id'], $sql_arr);
-        else
-            return false;
+        }
+
+        return false;
     }
 
     /**

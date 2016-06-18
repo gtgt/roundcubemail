@@ -114,7 +114,8 @@ init: function()
     var r, len, rows = this.tbody.childNodes;
 
     for (r=0, len=rows.length; r<len; r++) {
-      this.rowcount += this.init_row(rows[r]) ? 1 : 0;
+      if (rows[r].nodeType == 1)
+        this.rowcount += this.init_row(rows[r]) ? 1 : 0;
     }
 
     this.init_header();
@@ -150,9 +151,15 @@ init_row: function(row)
     var self = this, uid = row.uid;
     this.rows[uid] = {uid:uid, id:row.id, obj:row};
 
-    // set eventhandlers to table row (only left-button-clicks in mouseup)
-    row.onmousedown = function(e){ return self.drag_row(e, this.uid); };
-    row.onmouseup = function(e){ if (e.which == 1) return self.click_row(e, this.uid); };
+    $(row).data('uid', uid)
+      // set eventhandlers to table row (only left-button-clicks in mouseup)
+      .mousedown(function(e) { return self.drag_row(e, this.uid); })
+      .mouseup(function(e) {
+        if (e.which == 1 && !self.drag_active)
+          return self.click_row(e, this.uid);
+        else
+          return true;
+      });
 
     if (bw.touch && row.addEventListener) {
       row.addEventListener('touchstart', function(e) {
@@ -243,9 +250,10 @@ init_fixed_header: function()
     $(window).resize(function() { me.resize(); });
     $(window).scroll(function() {
       var w = $(window);
-      me.fixed_header.css('marginLeft', (-w.scrollLeft()) + 'px');
-      if (!bw.webkit)
-        me.fixed_header.css('marginTop', (-w.scrollTop()) + 'px');
+      me.fixed_header.css({
+        marginLeft: -w.scrollLeft() + 'px',
+        marginTop: -w.scrollTop() + 'px'
+      });
     });
   }
   else {
@@ -349,10 +357,11 @@ insert_row: function(row, before)
   if (row.nodeName === undefined) {
     // for performance reasons use DOM instead of jQuery here
     var domrow = document.createElement(this.row_tagname());
+
     if (row.id) domrow.id = row.id;
+    if (row.uid) domrow.uid = row.uid;
     if (row.className) domrow.className = row.className;
     if (row.style) $.extend(domrow.style, row.style);
-    if (row.uid) $(domrow).data('uid', String(row.uid)); // #1489906
 
     for (var e, domcell, col, i=0; row.cols && i < row.cols.length; i++) {
       col = row.cols[i];
@@ -388,18 +397,22 @@ update_row: function(id, cols, newid, select)
   var row = this.rows[id];
   if (!row) return false;
 
-  var domrow = row.obj;
-  for (var domcell, col, i=0; cols && i < cols.length; i++) {
+  var i, domrow = row.obj;
+  for (i = 0; cols && i < cols.length; i++) {
     this.get_cell(domrow, i).html(cols[i]);
   }
 
   if (newid) {
     delete this.rows[id];
+    domrow.uid = newid;
     domrow.id = 'rcmrow' + newid;
     this.init_row(domrow);
 
     if (select)
       this.selection[0] = newid;
+
+    if (this.last_selected == id)
+      this.last_selected = newid;
   }
 },
 
@@ -559,6 +572,10 @@ drag_row: function(e, id)
  */
 click_row: function(e, id)
 {
+  // sanity check
+  if (!id || !this.rows[id])
+    return false;
+
   // don't do anything (another action processed before)
   if (!this.is_event_target(e))
     return true;
@@ -816,14 +833,16 @@ update_expando: function(id, expanded)
 
 get_row_uid: function(row)
 {
-  if (row && row.uid)
-    return row.uid;
+  if (!row)
+    return;
 
-  var uid;
-  if (row && (uid = $(row).data('uid')))
-    row.uid = uid;
-  else if (row && String(row.id).match(this.id_regexp))
-    row.uid = RegExp.$1;
+  if (!row.uid) {
+    var uid = $(row).data('uid');
+    if (uid)
+      row.uid = uid;
+    else if (String(row.id).match(this.id_regexp))
+      row.uid = RegExp.$1;
+  }
 
   return row.uid;
 },
@@ -1085,11 +1104,11 @@ _rowIndex: function(obj)
 /**
  * Check if given id is part of the current selection
  */
-in_selection: function(id)
+in_selection: function(id, index)
 {
   for (var n in this.selection)
     if (this.selection[n] == id)
-      return true;
+      return index ? parseInt(n) : true;
 
   return false;
 },
@@ -1237,18 +1256,19 @@ highlight_row: function(id, multiple, norecur)
     }
   }
   else {
-    if (!this.in_selection(id)) { // select row
+    var pre, post, p = this.in_selection(id, true);
+
+    if (p === false) { // select row
       this.selection.push(id);
       $(this.rows[id].obj).addClass('selected').attr('aria-selected', 'true');
       if (!norecur && !this.rows[id].expanded)
         this.highlight_children(id, true);
     }
     else { // unselect row
-      var p = $.inArray(id, this.selection),
-        a_pre = this.selection.slice(0, p),
-        a_post = this.selection.slice(p+1, this.selection.length);
+      pre = this.selection.slice(0, p);
+      post = this.selection.slice(p+1, this.selection.length);
 
-      this.selection = a_pre.concat(a_post);
+      this.selection = pre.concat(post);
       $(this.rows[id].obj).removeClass('selected').removeAttr('aria-selected');
       if (!norecur && !this.rows[id].expanded)
         this.highlight_children(id, false);
@@ -1668,32 +1688,33 @@ column_drag_mouse_up: function(e)
     this.col_draglayer = null;
   }
 
-  if (this.col_drag_active)
-    this.focus();
-  this.col_drag_active = false;
-
   rcube_event.remove_listener({event:'mousemove', object:this, method:'column_drag_mouse_move'});
   rcube_event.remove_listener({event:'mouseup', object:this, method:'column_drag_mouse_up'});
+
   // remove temp divs
   this.del_dragfix();
 
-  if (this.selected_column !== null && this.cols && this.cols.length) {
-    var i, cpos = 0, pos = rcube_event.get_mouse_pos(e);
+  if (this.col_drag_active) {
+    this.col_drag_active = false;
+    this.focus();
+    this.triggerEvent('column_dragend', e);
 
-    // find destination position
-    for (i=0; i<this.cols.length; i++) {
-      if (pos.x >= this.cols[i]/2 + this.list_pos + cpos)
-        cpos += this.cols[i];
-      else
-        break;
-    }
+    if (this.selected_column !== null && this.cols && this.cols.length) {
+      var i, cpos = 0, pos = rcube_event.get_mouse_pos(e);
 
-    if (i != this.selected_column && i != this.selected_column+1) {
-      this.column_replace(this.selected_column, i);
+      // find destination position
+      for (i=0; i<this.cols.length; i++) {
+        if (pos.x >= this.cols[i]/2 + this.list_pos + cpos)
+          cpos += this.cols[i];
+        else
+          break;
+      }
+
+      if (i != this.selected_column && i != this.selected_column+1) {
+        this.column_replace(this.selected_column, i);
+      }
     }
   }
-
-  this.triggerEvent('column_dragend', e);
 
   return rcube_event.cancel(e);
 },

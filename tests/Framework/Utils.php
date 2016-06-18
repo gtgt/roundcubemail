@@ -95,6 +95,8 @@ class Framework_Utils extends PHPUnit_Framework_TestCase
             array('::1'),
             array('::1.2.3.4'),
             array('2001:2d12:c4fe:5afe::1'),
+            array('2001::'),
+            array('2001::1'),
         );
     }
 
@@ -110,7 +112,10 @@ class Framework_Utils extends PHPUnit_Framework_TestCase
             array('1.1.1.1.1'),
             array('::1.2.3.260'),
             array('::1.0'),
+            array(':::1'),
+            array('2001:::1'),
             array('2001::c4fe:5afe::1'),
+            array(':c4fe:5afe:1'),
         );
     }
 
@@ -275,18 +280,21 @@ class Framework_Utils extends PHPUnit_Framework_TestCase
      */
     function test_strtotime()
     {
+        // this test depends on system timezone if not set
+        date_default_timezone_set('UTC');
+
         $test = array(
             '1' => 1,
             '' => 0,
             'abc-555' => 0,
-            '2013-04-22' => 1366581600,
-            '2013/04/22' => 1366581600,
-            '2013.04.22' => 1366581600,
-            '22-04-2013' => 1366581600,
-            '22/04/2013' => 1366581600,
-            '22.04.2013' => 1366581600,
-            '22.4.2013'  => 1366581600,
-            '20130422'   => 1366581600,
+            '2013-04-22' => 1366588800,
+            '2013/04/22' => 1366588800,
+            '2013.04.22' => 1366588800,
+            '22-04-2013' => 1366588800,
+            '22/04/2013' => 1366588800,
+            '22.04.2013' => 1366588800,
+            '22.4.2013'  => 1366588800,
+            '20130422'   => 1366588800,
             '2013/06/21 12:00:00 UTC' => 1371816000,
             '2013/06/21 12:00:00 Europe/Berlin' => 1371808800,
         );
@@ -372,18 +380,45 @@ class Framework_Utils extends PHPUnit_Framework_TestCase
             'abc def' => 'abc def',
             'ÇçäâàåæéêëèïîìÅÉöôòüûùÿøØáíóúñÑÁÂÀãÃÊËÈÍÎÏÓÔõÕÚÛÙýÝ' => 'ccaaaaaeeeeiiiaeooouuuyooaiounnaaaaaeeeiiioooouuuyy',
             'ąáâäćçčéęëěíîłľĺńňóôöŕřśšşťţůúűüźžżýĄŚŻŹĆ' => 'aaaaccceeeeiilllnnooorrsssttuuuuzzzyaszzc',
-            'ß'   => '',
             'ßs'  => 'sss',
             'Xae' => 'xa',
             'Xoe' => 'xo',
             'Xue' => 'xu',
             '项目' => '项目',
-            '日'   => '',  // FIXME: this should not be stripped although minlen = 2
         );
+
+        // this test fails on PHP 5.3.3
+        if (PHP_VERSION_ID > 50303) {
+            $test['ß']  = '';
+            $test['日'] = '';
+        }
 
         foreach ($test as $input => $output) {
             $result = rcube_utils::normalize_string($input);
             $this->assertSame($output, $result, "Error normalizing '$input'");
+        }
+    }
+
+    /**
+     * rcube:utils::words_match()
+     */
+    function test_words_match()
+    {
+        $test = array(
+            array('', 'test', false),
+            array('test', 'test', true),
+            array('test', 'none', false),
+            array('test', 'test xyz', false),
+            array('test xyz', 'test xyz', true),
+            array('this is test', 'test', true),
+            // try some binary content
+            array('this is test ' . base64_decode('R0lGODlhDwAPAIAAAMDAwAAAACH5BAEAAAAALAAAAAAPAA8AQAINhI+py+0Po5y02otnAQA7'), 'test', true),
+            array('this is test ' . base64_decode('R0lGODlhDwAPAIAAAMDAwAAAACH5BAEAAAAALAAAAAAPAA8AQAINhI+py+0Po5y02otnAQA7'), 'none', false),
+        );
+
+        foreach ($test as $idx => $params) {
+            $result = rcube_utils::words_match($params[0], $params[1]);
+            $this->assertSame($params[2], $result, "words_match() at index $idx");
         }
     }
 
@@ -411,5 +446,17 @@ class Framework_Utils extends PHPUnit_Framework_TestCase
             $result = rcube_utils::is_absolute_path($input);
             $this->assertSame($output, $result);
         }
+    }
+
+    /**
+     * rcube:utils::random_bytes()
+     */
+    function test_random_bytes()
+    {
+        $this->assertRegexp('/^[a-zA-Z0-9]{15}$/', rcube_utils::random_bytes(15));
+        $this->assertSame(15, strlen(rcube_utils::random_bytes(15, true)));
+        $this->assertSame(1, strlen(rcube_utils::random_bytes(1)));
+        $this->assertSame(0, strlen(rcube_utils::random_bytes(0)));
+        $this->assertSame(0, strlen(rcube_utils::random_bytes(-1)));
     }
 }

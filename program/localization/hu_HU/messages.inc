@@ -5,7 +5,7 @@
  | localization/<lang>/messages.inc                                      |
  |                                                                       |
  | Localization file of the Roundcube Webmail client                     |
- | Copyright (C) 2005-2014, The Roundcube Dev Team                       |
+ | Copyright (C) 2005-2015, The Roundcube Dev Team                       |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -39,6 +39,7 @@ $messages['nomessages'] = 'Nincsenek üzenetek';
 $messages['refreshing'] = 'Frissítés...';
 $messages['loading'] = 'Betöltés...';
 $messages['uploading'] = 'Fájl feltöltése...';
+$messages['attaching'] = 'Fájl csatolása...';
 $messages['uploadingmany'] = 'Fájlok feltöltése...';
 $messages['loadingdata'] = 'Az adatok betöltése...';
 $messages['checkingmail'] = 'Új üzenetek keresése...';
@@ -50,10 +51,10 @@ $messages['successfullysaved'] = 'A mentés sikerült';
 $messages['savingresponse'] = 'A válasz szövegének mentése...';
 $messages['deleteresponseconfirm'] = 'Biztosan törli ezt a válasz szöveget?';
 $messages['addedsuccessfully'] = 'A kapcsolat hozzáadása a címjegyzékhez megtörtént';
-$messages['contactexists'] = 'Ezzel az e-mail címmel már létezik kapcsolat';
 $messages['contactnameexists'] = 'Ezzel a névvel már létezik kapcsolat';
 $messages['blockedimages'] = 'Biztonsági okokból a távoli képek letöltése tiltott';
 $messages['encryptedmessage'] = 'Az üzenet titkosított, ezért nem megjeleníthető';
+$messages['externalmessagedecryption'] = 'Ez egy titkosított üzenet amit vissza tudsz fejteni a böngésződ bővitményével,';
 $messages['nocontactsfound'] = 'Nem találhatóak kapcsolatok';
 $messages['contactnotfound'] = 'A kiválasztott kapcsolat nem található';
 $messages['contactsearchonly'] = 'Adjon meg keresőkifejezéseket a kapcsolatok közti kereséshez';
@@ -80,7 +81,6 @@ $messages['formincomplete'] = 'Az űrlap hiányosan lett kitöltve';
 $messages['noemailwarning'] = 'Adjon meg egy valós e-mail címet';
 $messages['nonamewarning']  = 'Adjon meg egy nevet';
 $messages['nopagesizewarning'] = 'Adja meg a papír méretét';
-$messages['nosenderwarning'] = 'Kérem adja meg a feladó e-mail címét';
 $messages['norecipientwarning'] = 'Legalább egy címzettet adjon meg';
 $messages['nosubjectwarning']  = 'A Tárgy mező üres. Szeretné most kitölteni?';
 $messages['nobodywarning'] = 'Elküldi az üzenetet üresen?';
@@ -137,7 +137,6 @@ $messages['importconfirmskipped'] = '<b>Kihagyva $skipped már létező bejegyz�
 $messages['importmessagesuccess'] = 'Sikeresen importálva $nr üzenet';
 $messages['importmessageerror'] = 'Sikertelen az importálás. A feltőltött file nem értelmezhető üzenetként vagy postafiók (mailbox) fileként.';
 $messages['opnotpermitted'] = 'A művelet nem megengedett!';
-$messages['nofromaddress'] = 'A kiválasztott azonosítónál nincs  email beállítva.';
 $messages['editorwarning'] = 'A szerkesztő tipusok közötti váltás a szöveg formázásának elveszésével járhat. Biztos szeretnéd folytatni?';
 $messages['httpreceivedencrypterror'] = 'Végzetes konfigurációs hiba történt, azonnal lépjen kapcsolatba az üzemeltetővel. <b>Az üzenet nem küldhető el.</b>';
 $messages['smtpconnerror'] = 'SMTP hiba ($code): Sikertelen kapcsolódás a szerverhez';
@@ -146,7 +145,6 @@ $messages['smtpfromerror'] = 'SMTP hiba ($code): Nem sikerült a feladó beáll�
 $messages['smtptoerror'] = 'SMTP hiba ($code): Nem sikerült a következő címzett hozzáadása: "$to" ($msg)';
 $messages['smtprecipientserror'] = 'SMTP hiba ($code): A címzettlista feldolgozása sikertelen';
 $messages['smtperror'] = 'SMTP hiba ($code): $msg';
-$messages['emailformaterror'] = 'Helytelen formátumú e-mail cím: $email';
 $messages['toomanyrecipients'] = 'Túl sok a címzett. Csökkentse a címzettek számát maximum $max címre!';
 $messages['maxgroupmembersreached'] = 'A csoport létszáma meghaladja a maximum $max főt';
 $messages['internalerror'] = 'Belső hiba történt. Kérjük próbálja újra!';
@@ -177,4 +175,12 @@ $messages['parentnotwritable'] = 'Nem sikerült a mappa létrehozása/áthelyez�
 $messages['messagetoobig'] = 'Az üzenetrész túl nagy a feldolgozáshoz.';
 $messages['attachmentvalidationerror'] = 'FIGYELEM! A csatalmány veszélyes lehet, mert a típusa nem egyezik az üzenetben beállított típussal. Amennyiben nem megbizható az üzenet küldője, ne nyissa meg a csatolmányt a böngészőben mert ártalmas lehet a tartalma.<br/><br/><em>Üzenetben beállított tipus: $expected; az érzékelt típus: $detected</em>';
 $messages['noscriptwarning'] = 'FIGYELEM: Ez webmail szolgáltatása igényli a Javascript futtatásának a lehetőségét! Amennyiben használni szeretné, engedélyezze a JavaScript futtatását a böngészőjének a beállatásaiban.';
-?>
+$messages['messageissent'] = 'Az üzenet már el lett küldve, de még nincs elmentve. El akarod menteni most?';
+$messages['errnotfound'] = 'File nem található';
+$messages['errnotfoundexplain'] = 'A kért erőforrás nem található!';
+$messages['errfailedrequest'] = 'Hibás kérés';
+$messages['errauthorizationfailed'] = 'Azonosítás sikertelen';
+$messages['errunauthorizedexplain'] = 'Nem sikerült ellenőrizni, hogy a szolgáltatás használata engdélyezett-e számodra';
+$messages['errcontactserveradmin'] = 'Vedd fel a kapcsolatot a rendszergazdádal.';
+$messages['clicktoresumesession'] = 'Kattints ide, hogy folytassad az elöző munkamenetedet';
+$messages['clicktocompose'] = 'Kattints ide új üzenet létrehozásához';

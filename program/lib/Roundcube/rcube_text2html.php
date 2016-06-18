@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | This file is part of the Roundcube Webmail client                     |
  | Copyright (C) 2008-2014, The Roundcube Dev Team                       |
@@ -45,20 +45,23 @@ class rcube_text2html
      */
     protected $config = array(
         // non-breaking space
-        'space'  => "\xC2\xA0",
+        'space' => "\xC2\xA0",
         // enables format=flowed parser
         'flowed' => false,
         // enables wrapping for non-flowed text
-        'wrap'   => true,
+        'wrap' => true,
         // line-break tag
-        'break'  => "<br>\n",
+        'break' => "<br>\n",
         // prefix and suffix (wrapper element)
-        'begin'  => '<div class="pre">',
-        'end'    => '</div>',
+        'begin' => '<div class="pre">',
+        'end'   => '</div>',
         // enables links replacement
-        'links'  => true,
+        'links' => true,
         // string replacer class
         'replacer' => 'rcube_string_replacer',
+        // prefix and suffix of unwrappable line
+        'nobr_start' => '<span style="white-space:nowrap">',
+        'nobr_end'   => '</span>',
     );
 
 
@@ -267,6 +270,10 @@ class rcube_text2html
         if (empty($table)) {
             $table = get_html_translation_table(HTML_SPECIALCHARS);
             unset($table['?']);
+
+            // replace some whitespace characters
+            $table["\r"] = '';
+            $table["\t"] = '    ';
         }
 
         // skip signature separator
@@ -274,13 +281,10 @@ class rcube_text2html
             return '--' . $this->config['space'];
         }
 
-        // replace HTML special characters
+        // replace HTML special and whitespace characters
         $text = strtr($text, $table);
 
         $nbsp = $this->config['space'];
-
-        // replace some whitespace characters
-        $text = str_replace(array("\r", "\t"), array('', '    '), $text);
 
         // replace spaces with non-breaking spaces
         if ($is_flowed) {
@@ -299,9 +303,13 @@ class rcube_text2html
 
             $text = $copy;
         }
-        else {
-            // make the whole line non-breakable
-            $text = str_replace(array(' ', '-', '/'), array($nbsp, '-&#8288;', '/&#8288;'), $text);
+        // make the whole line non-breakable if needed
+        else if ($text !== '' && preg_match('/[^a-zA-Z0-9_]/', $text)) {
+            // use non-breakable spaces to correctly display
+            // trailing/leading spaces and multi-space inside
+            $text = str_replace(' ', $nbsp, $text);
+            // wrap in nobr element, so it's not wrapped on e.g. - or /
+            $text = $this->config['nobr_start'] . $text .  $this->config['nobr_end'];
         }
 
         return $text;

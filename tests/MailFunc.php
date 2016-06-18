@@ -110,13 +110,15 @@ class MailFunc extends PHPUnit_Framework_TestCase
 
     /**
      * Test washtml class on non-unicode characters (#1487813)
+     * @group iconv
+     * @group mbstring
      */
     function test_washtml_utf8()
     {
         $part = $this->get_html_part('src/invalidchars.html');
         $washed = rcmail_print_body($part->body, $part);
 
-        $this->assertRegExp('/<p>символ<\/p>/', $washed, "Remove non-unicode characters from HTML message body");
+        $this->assertRegExp('/<p>(символ|симол)<\/p>/', $washed, "Remove non-unicode characters from HTML message body");
     }
 
     /**

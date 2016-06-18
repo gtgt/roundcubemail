@@ -39,8 +39,6 @@ function roundcube_browser()
 {
   var n = navigator;
 
-  this.ver = parseFloat(n.appVersion);
-  this.appver = n.appVersion;
   this.agent = n.userAgent;
   this.agent_lc = n.userAgent.toLowerCase();
   this.name = n.appName;
@@ -64,19 +62,20 @@ function roundcube_browser()
   this.ie = (document.all && !window.opera) || (this.win && this.agent_lc.indexOf('trident/') > 0);
 
   if (this.ie) {
-    this.ie7 = this.appver.indexOf('MSIE 7') > 0;
-    this.ie8 = this.appver.indexOf('MSIE 8') > 0;
-    this.ie9 = this.appver.indexOf('MSIE 9') > 0;
+    this.ie7 = n.appVersion.indexOf('MSIE 7') > 0;
+    this.ie8 = n.appVersion.indexOf('MSIE 8') > 0;
+    this.ie9 = n.appVersion.indexOf('MSIE 9') > 0;
   }
   else if (window.opera) {
-    this.opera = true;
+    this.opera = true; // Opera < 15
     this.vendver = opera.version();
   }
   else {
     this.chrome = this.agent_lc.indexOf('chrome') > 0;
-    this.safari = !this.chrome && (this.webkit || this.agent_lc.indexOf('safari') > 0);
+    this.opera = this.webkit && this.agent.indexOf(' OPR/') > 0; // Opera >= 15
+    this.safari = !this.chrome && !this.opera && (this.webkit || this.agent_lc.indexOf('safari') > 0);
     this.konq = this.agent_lc.indexOf('konqueror') > 0;
-    this.mz = this.dom && !this.chrome && !this.safari && !this.konq && this.agent.indexOf('Mozilla') >= 0;
+    this.mz = this.dom && !this.chrome && !this.safari && !this.konq && !this.opera && this.agent.indexOf('Mozilla') >= 0;
     this.iphone = this.safari && (this.agent_lc.indexOf('iphone') > 0 || this.agent_lc.indexOf('ipod') > 0);
     this.ipad = this.safari && this.agent_lc.indexOf('ipad') > 0;
   }
@@ -449,7 +448,7 @@ function rcube_check_email(input, inline)
       ],
       icann_addr = 'mailtest\\x40('+icann_domains.join('|')+')',
       word = '('+atom+'|'+quoted_string+')',
-      delim = '[,;\s\n]',
+      delim = '[,;\\s\\n]',
       local_part = word+'(\\x2e'+word+')*',
       addr_spec = '(('+local_part+'\\x40'+domain+')|('+icann_addr+'))',
       reg1 = inline ? new RegExp('(^|<|'+delim+')'+addr_spec+'($|>|'+delim+')', 'i') : new RegExp('^'+addr_spec+'$', 'i');
@@ -655,12 +654,89 @@ jQuery.fn.placeholder = function(text) {
   });
 };
 
+// function to parse query string into an object
+rcube_parse_query = function(query)
+{
+  if (!query)
+    return {};
 
-// This code was written by Tyler Akins and has been placed in the
-// public domain.  It would be nice if you left this header intact.
+  var params = {}, e, k, v,
+    re = /([^&=]+)=?([^&]*)/g,
+    decodeRE = /\+/g, // Regex for replacing addition symbol with a space
+    decode = function (str) { return decodeURIComponent(str.replace(decodeRE, ' ')); };
+
+  query = query.replace(/\?/, '');
+
+  while (e = re.exec(query)) {
+    k = decode(e[1]);
+    v = decode(e[2]);
+
+    if (k.substring(k.length - 2) === '[]') {
+      k = k.substring(0, k.length - 2);
+      (params[k] || (params[k] = [])).push(v);
+    }
+    else
+      params[k] = v;
+  }
+
+  return params;
+};
+
+
 // Base64 code from Tyler Akins -- http://rumkin.com
 var Base64 = (function () {
   var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+  // private method for UTF-8 encoding
+  var utf8_encode = function(string) {
+    string = string.replace(/\r\n/g, "\n");
+    var utftext = '';
+
+    for (var n = 0; n < string.length; n++) {
+      var c = string.charCodeAt(n);
+
+      if (c < 128) {
+        utftext += String.fromCharCode(c);
+      }
+      else if(c > 127 && c < 2048) {
+        utftext += String.fromCharCode((c >> 6) | 192);
+        utftext += String.fromCharCode((c & 63) | 128);
+      }
+      else {
+        utftext += String.fromCharCode((c >> 12) | 224);
+        utftext += String.fromCharCode(((c >> 6) & 63) | 128);
+        utftext += String.fromCharCode((c & 63) | 128);
+      }
+    }
+
+    return utftext;
+  };
+
+  // private method for UTF-8 decoding
+  var utf8_decode = function (utftext) {
+    var i = 0, string = '', c = c2 = c3 = 0;
+
+    while (i < utftext.length) {
+      c = utftext.charCodeAt(i);
+      if (c < 128) {
+        string += String.fromCharCode(c);
+        i++;
+      }
+      else if (c > 191 && c < 224) {
+        c2 = utftext.charCodeAt(i + 1);
+        string += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
+        i += 2;
+      }
+      else {
+        c2 = utftext.charCodeAt(i + 1);
+        c3 = utftext.charCodeAt(i + 2);
+        string += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
+        i += 3;
+      }
+    }
+
+    return string;
+  };
 
   var obj = {
     /**
@@ -668,12 +744,19 @@ var Base64 = (function () {
      * @param {String} input The string to encode in base64.
      */
     encode: function (input) {
-      if (typeof(window.btoa) === 'function')
-        return btoa(input);
+      // encode UTF8 as btoa() may fail on some characters
+      input = utf8_encode(input);
+
+      if (typeof(window.btoa) === 'function') {
+        try {
+          return btoa(input);
+        }
+        catch (e) {};
+      }
 
       var chr1, chr2, chr3, enc1, enc2, enc3, enc4, i = 0, output = '', len = input.length;
 
-      do {
+      while (i < len) {
         chr1 = input.charCodeAt(i++);
         chr2 = input.charCodeAt(i++);
         chr3 = input.charCodeAt(i++);
@@ -691,7 +774,7 @@ var Base64 = (function () {
         output = output
           + keyStr.charAt(enc1) + keyStr.charAt(enc2)
           + keyStr.charAt(enc3) + keyStr.charAt(enc4);
-      } while (i < len);
+      }
 
       return output;
     },
@@ -701,8 +784,12 @@ var Base64 = (function () {
      * @param {String} input The string to decode.
      */
     decode: function (input) {
-      if (typeof(window.atob) === 'function')
-         return atob(input);
+      if (typeof(window.atob) === 'function') {
+        try {
+          return utf8_decode(atob(input));
+        }
+        catch (e) {};
+      }
 
       var chr1, chr2, chr3, enc1, enc2, enc3, enc4, len, i = 0, output = '';
 
@@ -710,7 +797,7 @@ var Base64 = (function () {
       input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
       len = input.length;
 
-      do {
+      while (i < len) {
         enc1 = keyStr.indexOf(input.charAt(i++));
         enc2 = keyStr.indexOf(input.charAt(i++));
         enc3 = keyStr.indexOf(input.charAt(i++));
@@ -726,9 +813,9 @@ var Base64 = (function () {
           output = output + String.fromCharCode(chr2);
         if (enc4 != 64)
           output = output + String.fromCharCode(chr3);
-      } while (i < len);
+      }
 
-      return output;
+      return utf8_decode(output);
     }
   };
 

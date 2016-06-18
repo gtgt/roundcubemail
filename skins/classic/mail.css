@@ -184,6 +184,14 @@
   background-position: -548px 0;
 }
 
+#messagetoolbar a.encrypt {
+  background-position: -612px 0;
+}
+
+#messagetoolbar a.encryptSel {
+  background-position: -612px -32px;
+}
+
 #messagemenu li a.active:hover,
 #attachmentmenu li a.active:hover,
 #markmessagemenu li a.active:hover
@@ -212,7 +220,7 @@
 
 #messagemenu li a.sourcelink
 {
-  background-position: 7px -35px;
+  background-position: 7px -34px;
 }
 
 #messagemenu li a.openlink,
@@ -228,12 +236,12 @@
 
 #messagemenu li a.movelink
 {
-  background-position: 6px -161px;
+  background-position: 6px -160px;
 }
 
 #messagemenu li a.copylink
 {
-  background-position: 6px -143px;
+  background-position: 6px -142px;
 }
 
 #markmessagemenu li a,
@@ -533,6 +541,7 @@
   right: 4px;
   white-space: nowrap;
   font-size: 11px;
+  line-height: 14px;
 }
 
 #countcontrols a.button,
@@ -669,6 +678,7 @@ table.messagelist.fixedcopy
 .messagelist tr > .threads .listmenu,
 .messagelist tr > .attachment span.attachment,
 .messagelist tr > .attachment span.report,
+.messagelist tr > .attachment span.encrypted,
 .messagelist tr > .priority span.priority,
 .messagelist tr > .priority span.prio1,
 .messagelist tr > .priority span.prio2,
@@ -707,6 +717,11 @@ table.messagelist.fixedcopy
   background-position: 0 -255px;
 }
 
+.messagelist tr > .attachment span.encrypted
+{
+  background-position: 0 -418px;
+}
+
 .messagelist tr > .priority span.priority
 {
   background-position: 0 -309px;
@@ -735,6 +750,11 @@ table.messagelist.fixedcopy
 .messagelist tr > .priority span.prio1
 {
   background-position: 0 -290px;
+}
+
+.messagelist tr.flaggedroot td.flag span
+{
+  background-position: 0 -136px;
 }
 
 .messagelist tr > .flag span.flagged
@@ -1027,6 +1047,10 @@ table.headers-table
   width: auto;
   margin: 6px 8px;
   background-color: #F4F4F4;
+}
+
+#messagebody.mailvelope {
+  padding: 10px 8px;
 }
 
 #messagebody table.headers-table
@@ -1711,4 +1735,57 @@ input.from_address
 {
   top: 45px;
   position: absolute;
+}
+
+.mailvelopekeyimport div.key {
+  position: relative;
+  margin-bottom: 2px;
+  padding: 1em 1em 5px;
+  background-color: #ebebeb;
+}
+
+.mailvelopekeyimport div.key.revoked,
+.mailvelopekeyimport div.key.disabled {
+  color: #a0a0a0;
+}
+
+.mailvelopekeyimport div.key label {
+  display: inline-block;
+  margin-right: 0.5em;
+}
+
+.mailvelopekeyimport div.key label:after {
+  content: ":";
+}
+
+.mailvelopekeyimport div.key label + a,
+.mailvelopekeyimport div.key label + span {
+  display: inline-block;
+  margin-right: 2em;
+  white-space: nowrap;
+}
+
+.mailvelopekeyimport div.key label + a {
+  font-weight: bold;
+}
+
+.mailvelopekeyimport ul.uids {
+  margin: 5px 1em 0 1em;
+  padding: 0;
+}
+
+.mailvelopekeyimport li.uid {
+  border: 0;
+  padding: 2px;
+}
+
+.mailvelopekeyimport div.key input.button.importkey {
+  position: absolute;
+  top: 0.8em;
+  right: 0.8em;
+  padding: 2px 6px;
+}
+
+.mailvelopekeyimport div.key input.button[disabled] {
+  display: none;
 }

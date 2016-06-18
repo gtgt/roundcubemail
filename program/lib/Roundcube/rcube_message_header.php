@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | This file is part of the Roundcube Webmail client                     |
  | Copyright (C) 2005-2012, The Roundcube Dev Team                       |
@@ -227,7 +227,7 @@ class rcube_message_header
         if ($decode) {
             if (is_array($value)) {
                 foreach ($value as $key => $val) {
-                    $value[$key] = rcube_mime::decode_header($val, $this->charset);
+                    $val         = rcube_mime::decode_header($val, $this->charset);
                     $value[$key] = rcube_charset::clean($val);
                 }
             }

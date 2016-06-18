@@ -15,14 +15,13 @@ $required_php_exts = array(
     'XML'       => 'xml',
     'JSON'      => 'json',
     'PDO'       => 'PDO',
+    'Multibyte' => 'mbstring',
+    'OpenSSL'   => 'openssl',
 );
 
 $optional_php_exts = array(
     'FileInfo'  => 'fileinfo',
     'Libiconv'  => 'iconv',
-    'Multibyte' => 'mbstring',
-    'OpenSSL'   => 'openssl',
-    'Mcrypt'    => 'mcrypt',
     'Intl'      => 'intl',
     'Exif'      => 'exif',
     'LDAP'      => 'ldap',
@@ -34,7 +33,6 @@ $required_libs = array(
     'Net_SMTP'  => 'pear.php.net',
     'Net_IDNA2' => 'pear.php.net',
     'Mail_mime' => 'pear.php.net',
-    'Mail_mimeDecode' => 'pear.php.net',
 );
 
 $optional_libs = array(
@@ -64,7 +62,6 @@ $source_urls = array(
     'FileInfo'  => 'http://www.php.net/manual/en/book.fileinfo.php',
     'Libiconv'  => 'http://www.php.net/manual/en/book.iconv.php',
     'Multibyte' => 'http://www.php.net/manual/en/book.mbstring.php',
-    'Mcrypt'    => 'http://www.php.net/manual/en/book.mcrypt.php',
     'OpenSSL'   => 'http://www.php.net/manual/en/book.openssl.php',
     'JSON'      => 'http://www.php.net/manual/en/book.json.php',
     'DOM'       => 'http://www.php.net/manual/en/book.dom.php',
@@ -82,9 +79,8 @@ $source_urls = array(
     'PEAR'      => 'http://pear.php.net',
     'Net_SMTP'  => 'http://pear.php.net/package/Net_SMTP',
     'Mail_mime' => 'http://pear.php.net/package/Mail_mime',
-    'Mail_mimeDecode' => 'http://pear.php.net/package/Mail_mimeDecode',
     'Net_IDNA2' => 'http://pear.php.net/package/Net_IDNA2',
-    'Net_LDAP3' => 'http://git.kolab.org/pear/Net_LDAP3',
+    'Net_LDAP3' => 'https://git.kolab.org/diffusion/PNL',
 );
 
 echo '<input type="hidden" name="_step" value="' . ($RCI->configured ? 3 : 2) . '" />';

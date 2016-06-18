@@ -1,11 +1,11 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | program/steps/mail/viewsource.inc                                     |
  |                                                                       |
  | This file is part of the Roundcube Webmail client                     |
- | Copyright (C) 2005-2013, The Roundcube Dev Team                       |
+ | Copyright (C) 2005-2016, The Roundcube Dev Team                       |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -19,18 +19,30 @@
  +-----------------------------------------------------------------------+
 */
 
+if (!empty($_GET['_save'])) {
+    $RCMAIL->request_security_check(rcube_utils::INPUT_GET);
+}
+
 ob_end_clean();
 
 // similar code as in program/steps/mail/get.inc
 if ($uid = rcube_utils::get_input_value('_uid', rcube_utils::INPUT_GET)) {
-    $headers = $RCMAIL->storage->get_message_headers($uid);
-    $charset = $headers->charset ? $headers->charset : $RCMAIL->config->get('default_charset');
+    if ($pos = strpos($uid, '.')) {
+        $message = new rcube_message($uid);
+        $headers = $message->headers;
+        $part_id = substr($uid, $pos + 1);
+    }
+    else {
+        $headers = $RCMAIL->storage->get_message_headers($uid);
+    }
+
+    $charset = $headers->charset ?: $RCMAIL->config->get('default_charset');
 
     header("Content-Type: text/plain; charset={$charset}");
 
     if (!empty($_GET['_save'])) {
         $subject  = rcube_mime::decode_header($headers->subject, $headers->charset);
-        $filename = ($subject ? $subject : $RCMAIL->config->get('product_name', 'email')) . '.eml';
+        $filename = ($subject ?: $RCMAIL->config->get('product_name', 'email')) . '.eml';
         $browser  = $RCMAIL->output->browser;
 
         if ($browser->ie)
@@ -42,7 +54,12 @@ if ($uid = rcube_utils::get_input_value('_uid', rcube_utils::INPUT_GET)) {
         header("Content-Disposition: attachment; filename=\"$filename\"");
     }
 
-    $RCMAIL->storage->print_raw_body($uid, empty($_GET['_save']));
+    if (isset($message)) {
+        $message->get_part_body($part_id, empty($_GET['_save']), 0, -1);
+    }
+    else {
+        $RCMAIL->storage->print_raw_body($uid, empty($_GET['_save']));
+    }
 }
 else {
     rcube::raise_error(array(

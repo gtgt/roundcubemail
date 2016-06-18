@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | program/steps/mail/sendmail.inc                                       |
  |                                                                       |
@@ -24,7 +24,8 @@
 $OUTPUT->reset();
 $OUTPUT->framed = TRUE;
 
-$savedraft      = !empty($_POST['_draft']) ? true : false;
+$saveonly       = !empty($_GET['_saveonly']);
+$savedraft      = !empty($_POST['_draft']) && !$saveonly;
 $sendmail_delay = (int) $RCMAIL->config->get('sendmail_delay');
 $drafts_mbox    = $RCMAIL->config->get('drafts_mbox');
 
@@ -112,6 +113,12 @@ else if ($from_string = rcmail_email_input_format($from)) {
         $from = null;
 }
 
+// check 'From' address (identity may be incomplete)
+if (!$savedraft && !$saveonly && empty($from)) {
+    $OUTPUT->show_message('nofromaddress', 'error');
+    $OUTPUT->send('iframe');
+}
+
 if (!$from_string && $from) {
     $from_string = $from;
 }
@@ -121,52 +128,25 @@ $headers = array();
 
 // if configured, the Received headers goes to top, for good measure
 if ($RCMAIL->config->get('http_received_header')) {
-    $nldlm   = "\r\n\t";
-    $encrypt = $RCMAIL->config->get('http_received_header_encrypt');
-
-    // FROM/VIA
+    $nldlm       = "\r\n\t";
     $http_header = 'from ';
 
+    // FROM/VIA
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $hosts    = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'], 2);
-        $hostname = gethostbyaddr($hosts[0]);
-
-        if ($encrypt) {
-            $http_header .= rcmail_encrypt_header($hostname);
-            if ($host != $hostname)
-                $http_header .= ' ('. rcmail_encrypt_header($host) . ')';
-        }
-        else {
-            $http_header .= (($host != $hostname) ? $hostname : '[' . $host . ']');
-            if ($host != $hostname)
-                $http_header .= ' (['. $host .'])';
-        }
-        $http_header .= $nldlm . ' via ';
+        $hosts        = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'], 2);
+        $http_header .= rcmail_received_host($hosts[0]) . $nldlm . ' via ';
     }
 
-    $host     = $_SERVER['REMOTE_ADDR'];
-    $hostname = gethostbyaddr($host);
-
-    if ($encrypt) {
-        $http_header .= rcmail_encrypt_header($hostname);
-        if ($host != $hostname)
-            $http_header .= ' ('. rcmail_encrypt_header($host) . ')';
-    }
-    else {
-        $http_header .= (($host != $hostname) ? $hostname : '[' . $host . ']');
-        if ($host != $hostname)
-            $http_header .= ' (['. $host .'])';
-    }
+    $http_header .= rcmail_received_host($_SERVER['REMOTE_ADDR']);
 
     // BY
     $http_header .= $nldlm . 'by ' . $_SERVER['HTTP_HOST'];
 
     // WITH
-    $http_header .= $nldlm . 'with HTTP (' . $_SERVER['SERVER_PROTOCOL'] .
-      ' '.$_SERVER['REQUEST_METHOD'] . '); ' . date('r');
-    $http_header = wordwrap($http_header, 69, $nldlm);
+    $http_header .= $nldlm . 'with HTTP (' . $_SERVER['SERVER_PROTOCOL']
+        . ' ' . $_SERVER['REQUEST_METHOD'] . '); ' . date('r');
 
-    $headers['Received'] = $http_header;
+    $headers['Received'] = wordwrap($http_header, 69, $nldlm);
 }
 
 $headers['Date'] = $RCMAIL->user_date();
@@ -209,11 +189,17 @@ if ($hdr = rcube_utils::get_input_value('_followupto', rcube_utils::INPUT_POST, 
 }
 
 // remember reply/forward UIDs in special headers
-if (!empty($COMPOSE['reply_uid']) && $savedraft) {
-    $headers['X-Draft-Info'] = array('type' => 'reply', 'uid' => $COMPOSE['reply_uid']);
-}
-else if (!empty($COMPOSE['forward_uid']) && $savedraft) {
-    $headers['X-Draft-Info'] = array('type' => 'forward', 'uid' => rcube_imap_generic::compressMessageSet($COMPOSE['forward_uid']));
+if ($savedraft) {
+    // Note: We ignore <UID>.<PART> forwards/replies here
+    if (($uid = $COMPOSE['reply_uid']) && !preg_match('/^\d+\.[0-9.]+$/', $uid)) {
+        $headers['X-Draft-Info'] = array('type' => 'reply', 'uid' => $uid);
+    }
+    else if (!empty($COMPOSE['forward_uid'])
+        && ($uid = rcube_imap_generic::compressMessageSet($COMPOSE['forward_uid']))
+        && !preg_match('/^\d+[0-9.]+$/', $uid)
+    ) {
+        $headers['X-Draft-Info'] = array('type' => 'forward', 'uid' => $uid);
+    }
 }
 
 if (!empty($COMPOSE['reply_msgid'])) {
@@ -254,7 +240,7 @@ $data = $RCMAIL->plugins->exec_hook('message_outgoing_headers', array('headers' 
 
 // sending aborted by plugin
 if ($data['abort'] && !$savedraft) {
-    $OUTPUT->show_message($data['message'] ? $data['message'] : 'sendingfailed');
+    $OUTPUT->show_message($data['message'] ?: 'sendingfailed');
     $OUTPUT->send('iframe');
 }
 else {
@@ -265,6 +251,19 @@ $isHtml = (bool) rcube_utils::get_input_value('_is_html', rcube_utils::INPUT_POS
 
 // fetch message body
 $message_body = rcube_utils::get_input_value('_message', rcube_utils::INPUT_POST, TRUE, $message_charset);
+
+if (isset($_POST['_pgpmime'])) {
+    $pgp_mime     = rcube_utils::get_input_value('_pgpmime', rcube_utils::INPUT_POST);
+    $isHtml       = false;
+    $message_body = '';
+
+    // clear unencrypted attachments
+    foreach ((array) $COMPOSE['attachments'] as $attach) {
+        $RCMAIL->plugins->exec_hook('attachment_delete', $attach);
+    }
+
+    $COMPOSE['attachments'] = array();
+}
 
 if ($isHtml) {
     $bstyle = array();
@@ -290,16 +289,22 @@ if (!$savedraft) {
 
         $message_body = preg_replace(
             array(
+                // remove empty signature div
+                '/<div id="_rc_sig">(&nbsp;)?<\/div>[\s\r\n]*$/',
                 // remove signature's div ID
                 '/\s*id="_rc_sig"/',
                 // add inline css for blockquotes and container
                 '/<blockquote>/',
-                '/<div class="pre">/'
+                '/<div class="pre">/',
+                // convert TinyMCE's new-line sequences (#1490463)
+                '/<p>&nbsp;<\/p>/',
             ),
             array(
                 '',
+                '',
                 '<blockquote type="cite" style="'.$b_style.'">',
-                '<div class="pre" style="'.$pre_style.'">'
+                '<div class="pre" style="'.$pre_style.'">',
+                '<p><br /></p>',
             ),
             $message_body);
     }
@@ -385,13 +390,14 @@ if ($isHtml) {
 
     $MAIL_MIME->setHTMLBody($plugin['body']);
 
-    // replace emoticons
-    $plugin['body'] = $RCMAIL->replace_emoticons($plugin['body']);
-
-    // add a plain text version of the e-mail as an alternative part.
-    $h2t = new rcube_html2text($plugin['body'], false, true, 0, $message_charset);
-    $plainTextPart = rcube_mime::wordwrap($h2t->get_text(), $LINE_LENGTH, "\r\n", false, $message_charset);
+    $plainTextPart = $RCMAIL->html2text($plugin['body'], array('width' => 0, 'charset' => $message_charset));
+    $plainTextPart = rcube_mime::wordwrap($plainTextPart, $LINE_LENGTH, "\r\n", false, $message_charset);
     $plainTextPart = wordwrap($plainTextPart, 998, "\r\n", true);
+
+    // completely blank text part confuses some mail clients
+    if ($plainTextPart == '') {
+        $plainTextPart = "\r\n";
+    }
 
     // make sure all line endings are CRLF (#1486712)
     $plainTextPart = preg_replace('/\r?\n/', "\r\n", $plainTextPart);
@@ -399,11 +405,8 @@ if ($isHtml) {
     $plugin = $RCMAIL->plugins->exec_hook('message_outgoing_body',
         array('body' => $plainTextPart, 'type' => 'alternative', 'message' => $MAIL_MIME));
 
+    // add a plain text version of the e-mail as an alternative part.
     $MAIL_MIME->setTXTBody($plugin['body']);
-
-    // look for "emoticon" images from TinyMCE and change their src paths to
-    // be file paths on the server instead of URL paths.
-    rcmail_fix_emoticon_paths($MAIL_MIME);
 
     // Extract image Data URIs into message attachments (#1488502)
     rcmail_extract_inline_images($MAIL_MIME, $from);
@@ -463,7 +466,7 @@ if (is_array($COMPOSE['attachments'])) {
         }
         else {
             $ctype   = str_replace('image/pjpeg', 'image/jpeg', $attachment['mimetype']); // #1484914
-            $file    = $attachment['data'] ? $attachment['data'] : $attachment['path'];
+            $file    = $attachment['data'] ?: $attachment['path'];
             $folding = (int) $RCMAIL->config->get('mime_param_folding');
 
             $MAIL_MIME->addAttachment($file,
@@ -496,6 +499,23 @@ if ($flowed) {
     $text_charset .= ";\r\n format=flowed";
 }
 
+// compose PGP/Mime message
+if ($pgp_mime) {
+    $MAIL_MIME->addAttachment(new Mail_mimePart('Version: 1', array(
+            'content_type' => 'application/pgp-encrypted',
+            'description'  => 'PGP/MIME version identification',
+    )));
+
+    $MAIL_MIME->addAttachment(new Mail_mimePart($pgp_mime, array(
+            'content_type' => 'application/octet-stream',
+            'filename'     => 'encrypted.asc',
+            'disposition'  => 'inline',
+    )));
+
+    $MAIL_MIME->setContentType('multipart/encrypted', array('protocol' => 'application/pgp-encrypted'));
+    $MAIL_MIME->setParam('preamble', 'This is an OpenPGP/MIME encrypted message (RFC 2440 and 3156)');
+}
+
 // encoding settings for mail composing
 $MAIL_MIME->setParam('text_encoding', $transfer_encoding);
 $MAIL_MIME->setParam('html_encoding', 'quoted-printable');
@@ -504,25 +524,15 @@ $MAIL_MIME->setParam('head_charset', $message_charset);
 $MAIL_MIME->setParam('html_charset', $message_charset);
 $MAIL_MIME->setParam('text_charset', $text_charset);
 
-// encoding subject header with mb_encode provides better results with asian characters
-if (function_exists('mb_encode_mimeheader')) {
-    mb_internal_encoding($message_charset);
-    $headers['Subject'] = mb_encode_mimeheader($headers['Subject'],
-        $message_charset, 'Q', "\r\n", 8);
-    mb_internal_encoding(RCUBE_CHARSET);
-}
-
 // pass headers to message object
 $MAIL_MIME->headers($headers);
 
-// Begin SMTP Delivery Block
-if (!$savedraft) {
-    // check 'From' address (identity may be incomplete)
-    if (empty($from)) {
-        $OUTPUT->show_message('nofromaddress', 'error');
-        $OUTPUT->send('iframe');
-    }
+// This hook allows to modify the message before send or save action
+$plugin    = $RCMAIL->plugins->exec_hook('message_ready', array('message' => $MAIL_MIME));
+$MAIL_MIME = $plugin['message'];
 
+// Begin SMTP Delivery Block
+if (!$savedraft && !$saveonly) {
     // Handle Delivery Status Notification request
     $smtp_opts['dsn'] = $dsn_enabled;
 
@@ -551,12 +561,18 @@ if (!$savedraft) {
     // set replied/forwarded flag
     if ($COMPOSE['reply_uid']) {
         foreach (rcmail::get_uids($COMPOSE['reply_uid'], $COMPOSE['mailbox']) as $mbox => $uids) {
-            $RCMAIL->storage->set_flag($uids, 'ANSWERED', $mbox);
+            // skip <UID>.<PART> replies
+            if (!preg_match('/^\d+\.[0-9.]+$/', implode(',', (array) $uids))) {
+                $RCMAIL->storage->set_flag($uids, 'ANSWERED', $mbox);
+            }
         }
     }
     else if ($COMPOSE['forward_uid']) {
         foreach (rcmail::get_uids($COMPOSE['forward_uid'], $COMPOSE['mailbox']) as $mbox => $uids) {
-            $RCMAIL->storage->set_flag($uids, 'FORWARDED', $mbox);
+            // skip <UID>.<PART> forwards
+            if (!preg_match('/^\d+\.[0-9.]+$/', implode(',', (array) $uids))) {
+                $RCMAIL->storage->set_flag($uids, 'FORWARDED', $mbox);
+            }
         }
     }
 }
@@ -600,8 +616,9 @@ if ($store_target) {
             else {
                 $temp_dir      = $RCMAIL->config->get('temp_dir');
                 $mailbody_file = tempnam($temp_dir, 'rcmMsg');
+                $msg           = $MAIL_MIME->saveMessageBody($mailbody_file);
 
-                if (!PEAR::isError($msg = $MAIL_MIME->saveMessageBody($mailbody_file))) {
+                if (!is_a($msg, 'PEAR_Error')) {
                     $msg = $mailbody_file;
                 }
             }
@@ -611,7 +628,7 @@ if ($store_target) {
             $headers = '';
         }
 
-        if (PEAR::isError($msg)) {
+        if (is_a($msg, 'PEAR_Error')) {
             rcube::raise_error(array('code' => 650, 'type' => 'php',
                 'file' => __FILE__, 'line' => __LINE__,
                 'message' => "Could not create message: ".$msg->getMessage()),
@@ -635,22 +652,11 @@ if ($store_target) {
             'message' => "Could not save message in $store_target"), true, false);
 
         if ($savedraft) {
-            $OUTPUT->show_message('errorsaving', 'error');
+            $RCMAIL->display_server_error('errorsaving');
+
             // start the auto-save timer again
             $OUTPUT->command('auto_save_start');
             $OUTPUT->send('iframe');
-        }
-    }
-
-    // delete previous saved draft
-    if ($saved && ($old_id = rcube_utils::get_input_value('_draft_saveid', rcube_utils::INPUT_POST))) {
-        $deleted = $RCMAIL->storage->delete_message($old_id, $drafts_mbox);
-
-        // raise error if deletion of old draft failed
-        if (!$deleted) {
-            rcube::raise_error(array('code' => 800, 'type' => 'imap',
-                'file' => __FILE__, 'line' => __LINE__,
-                'message' => "Could not delete message from $drafts_mbox"), true, false);
         }
     }
 }
@@ -659,6 +665,18 @@ else if ($mailbody_file) {
     unlink($mailbody_file);
 }
 
+// delete previous saved draft
+$old_id = rcube_utils::get_input_value('_draft_saveid', rcube_utils::INPUT_POST);
+if ($old_id && ($sent || $saved)) {
+    $deleted = $RCMAIL->storage->delete_message($old_id, $drafts_mbox);
+
+    // raise error if deletion of old draft failed
+    if (!$deleted) {
+        rcube::raise_error(array('code' => 800, 'type' => 'imap',
+            'file' => __FILE__, 'line' => __LINE__,
+            'message' => "Could not delete message from $drafts_mbox"), true, false);
+    }
+}
 
 if ($savedraft) {
     // remember new draft-uid ($saved could be an UID or true/false here)
@@ -672,7 +690,7 @@ if ($savedraft) {
             array('msgid' => $message_id, 'uid' => $saved, 'folder' => $store_target));
 
         // display success
-        $OUTPUT->show_message($plugin['message'] ? $plugin['message'] : 'messagesaved', 'confirmation');
+        $OUTPUT->show_message($plugin['message'] ?: 'messagesaved', 'confirmation');
 
         // update "_draft_saveid" and the "cmp_hash" to prevent "Unsaved changes" warning
         $COMPOSE['param']['draft_uid'] = $plugin['uid'];
@@ -688,24 +706,36 @@ else {
     // we'll refresh the list if currently opened folder is one of them (#1490238)
     $folders = array();
 
-    if (in_array($COMPOSE['mode'], array('reply', 'forward', 'draft'))) {
-        $folders[] = $COMPOSE['mailbox'];
+    if (!$saveonly) {
+        if (in_array($COMPOSE['mode'], array('reply', 'forward', 'draft'))) {
+            $folders[] = $COMPOSE['mailbox'];
+        }
+        if (!empty($COMPOSE['param']['draft_uid']) && $drafts_mbox) {
+            $folders[] = $drafts_mbox;
+        }
     }
-    if (!empty($COMPOSE['param']['draft_uid']) && $drafts_mbox) {
-        $folders[] = $drafts_mbox;
-    }
-
-    rcmail_compose_cleanup($COMPOSE_ID);
-    $OUTPUT->command('remove_compose_data', $COMPOSE_ID);
 
     if ($store_folder && !$saved) {
-        $OUTPUT->command('sent_successfully', 'error', $RCMAIL->gettext('errorsavingsent'), $folders);
+        $params = $saveonly ? null : array('prefix' => true);
+        $RCMAIL->display_server_error('errorsavingsent', null, null, $params);
+        if ($saveonly) {
+            $OUTPUT->send('iframe');
+        }
+
+        $save_error = true;
     }
-    else if ($store_folder) {
-        $folders[] = $store_target;
+    else {
+        rcmail_compose_cleanup($COMPOSE_ID);
+        $OUTPUT->command('remove_compose_data', $COMPOSE_ID);
+
+        if ($store_folder) {
+            $folders[] = $store_target;
+        }
     }
 
-    $OUTPUT->command('sent_successfully', 'confirmation', $RCMAIL->gettext('messagesent'), $folders);
+    $msg = $RCMAIL->gettext($saveonly ? 'successfullysaved' : 'messagesent');
+
+    $OUTPUT->command('sent_successfully', 'confirmation', $msg, $folders, $save_error);
 }
 
 $OUTPUT->send('iframe');
@@ -713,16 +743,33 @@ $OUTPUT->send('iframe');
 
 /****** message sending functions ********/
 
-// encrypt parts of the header
-function rcmail_encrypt_header($what)
+function rcmail_received_host($host)
+{
+    $hostname = gethostbyaddr($host);
+
+    $result = rcmail_encrypt_host($hostname);
+
+    if ($host != $hostname) {
+        $result .= ' (' . rcmail_encrypt_host($host) . ')';
+    }
+
+    return $result;
+}
+
+// encrypt host IP or hostname for Received header
+function rcmail_encrypt_host($host)
 {
     global $RCMAIL;
 
-    if (!$RCMAIL->config->get('http_received_header_encrypt')) {
-        return $what;
+    if ($RCMAIL->config->get('http_received_header_encrypt')) {
+        return $RCMAIL->encrypt($host);
     }
 
-    return $RCMAIL->encrypt($what);
+    if (!preg_match('/[^0-9:.]/', $host)) {
+        return "[$host]";
+    }
+
+    return $host;
 }
 
 // get identity record
@@ -746,57 +793,6 @@ function rcmail_get_identity($id)
     }
 
     return false;
-}
-
-/**
- * go from this:
- * <img src="http[s]://.../tinymce/plugins/emoticons/img/smiley-cool.gif" border="0" alt="Cool" title="Cool" />
- *
- * to this:
- *
- * <img src="/path/on/server/.../tinymce/plugins/emoticons/img/smiley-cool.gif" border="0" alt="Cool" title="Cool" />
- */
-function rcmail_fix_emoticon_paths($mime_message)
-{
-    global $RCMAIL;
-
-    $body = $mime_message->getHTMLBody();
-
-    // remove any null-byte characters before parsing
-    $body = preg_replace('/\x00/', '', $body);
-
-    $searchstr = 'program/js/tinymce/plugins/emoticons/img/';
-    $offset = 0;
-
-    // keep track of added images, so they're only added once
-    $included_images = array();
-
-    if (preg_match_all('# src=[\'"]([^\'"]+)#', $body, $matches, PREG_OFFSET_CAPTURE)) {
-        foreach ($matches[1] as $m) {
-            // find emoticon image tags
-            if (preg_match('#'.$searchstr.'(.*)$#', $m[0], $imatches)) {
-                $image_name = $imatches[1];
-
-                // sanitize image name so resulting attachment doesn't leave images dir
-                $image_name = preg_replace('/[^a-zA-Z0-9_\.\-]/i', '', $image_name);
-                $img_file   = INSTALL_PATH . '/' . $searchstr . $image_name;
-
-                if (! in_array($image_name, $included_images)) {
-                    // add the image to the MIME message
-                    if (!$mime_message->addHTMLImage($img_file, 'image/gif', '', true, $image_name)) {
-                        $RCMAIL->output->show_message("emoticonerror", 'error');
-                    }
-
-                    array_push($included_images, $image_name);
-                }
-
-                $body    = substr_replace($body, $img_file, $m[1] + $offset, strlen($m[0]));
-                $offset += strlen($img_file) - strlen($m[0]);
-            }
-        }
-    }
-
-    $mime_message->setHTMLBody($body);
 }
 
 /**
@@ -942,4 +938,20 @@ function rcmail_generic_message_footer($isHtml)
     }
 
     return false;
+}
+
+/**
+ * clear message composing settings
+ */
+function rcmail_compose_cleanup($id)
+{
+    if (!isset($_SESSION['compose_data_'.$id])) {
+        return;
+    }
+
+    $rcmail = rcmail::get_instance();
+    $rcmail->plugins->exec_hook('attachments_cleanup', array('group' => $id));
+    $rcmail->session->remove('compose_data_'.$id);
+
+    $_SESSION['last_compose_session'] = $id;
 }

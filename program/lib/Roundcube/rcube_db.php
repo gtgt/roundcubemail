@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | This file is part of the Roundcube Webmail client                     |
  | Copyright (C) 2005-2012, The Roundcube Dev Team                       |
@@ -148,10 +148,6 @@ class rcube_db
         // Get database specific connection options
         $dsn_string  = $this->dsn_string($dsn);
         $dsn_options = $this->dsn_options($dsn);
-
-        if ($this->db_pconn) {
-            $dsn_options[PDO::ATTR_PERSISTENT] = true;
-        }
 
         // Connect
         try {
@@ -357,7 +353,7 @@ class rcube_db
     public function get_variable($varname, $default = null)
     {
         // to be implemented by driver class
-        return $default;
+        return rcube::get_instance()->config->get('db_' . $varname, $default);
     }
 
     /**
@@ -448,9 +444,14 @@ class rcube_db
             }
         }
 
-        // replace escaped '?' back to normal, see self::quote()
-        $query = str_replace('??', '?', $query);
         $query = rtrim($query, " \t\n\r\0\x0B;");
+
+        // replace escaped '?' and quotes back to normal, see self::quote()
+        $query = str_replace(
+            array('??', self::DEFAULT_QUOTE.self::DEFAULT_QUOTE),
+            array('?', self::DEFAULT_QUOTE),
+            $query
+        );
 
         // log query
         $this->debug($query);
@@ -515,9 +516,6 @@ class rcube_db
                 $pos++;
             }
         }
-
-        // replace escaped quote back to normal, see self::quote()
-        $query = str_replace($quote.$quote, $quote, $query);
 
         return $query;
     }
@@ -689,14 +687,11 @@ class rcube_db
     {
         // get tables if not cached
         if ($this->tables === null) {
-            $q = $this->query('SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ORDER BY TABLE_NAME');
+            $q = $this->query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES"
+                . " WHERE TABLE_TYPE = 'BASE TABLE'"
+                . " ORDER BY TABLE_NAME");
 
-            if ($q) {
-                $this->tables = $q->fetchAll(PDO::FETCH_COLUMN, 0);
-            }
-            else {
-                $this->tables = array();
-            }
+            $this->tables = $q ? $q->fetchAll(PDO::FETCH_COLUMN, 0) : array();
         }
 
         return $this->tables;
@@ -776,6 +771,16 @@ class rcube_db
         $this->debug('ROLLBACK TRANSACTION');
 
         return $this->last_result = $this->dbh->rollBack();
+    }
+
+    /**
+     * Release resources related to the last query result.
+     * When we know we don't need to access the last query result we can destroy it
+     * and release memory. Usefull especially if the query returned big chunk of data.
+     */
+    public function reset()
+    {
+        $this->last_result = null;
     }
 
     /**
@@ -1188,7 +1193,7 @@ class rcube_db
         }
 
         // process the different protocol options
-        $parsed['protocol'] = (!empty($proto)) ? $proto : 'tcp';
+        $parsed['protocol'] = $proto ?: 'tcp';
         $proto_opts = rawurldecode($proto_opts);
         if (strpos($proto_opts, ':') !== false) {
             list($proto_opts, $parsed['port']) = explode(':', $proto_opts);
@@ -1271,6 +1276,18 @@ class rcube_db
     protected function dsn_options($dsn)
     {
         $result = array();
+
+        if ($this->db_pconn) {
+            $result[PDO::ATTR_PERSISTENT] = true;
+        }
+
+        if (!empty($dsn['prefetch'])) {
+            $result[PDO::ATTR_PREFETCH] = (int) $dsn['prefetch'];
+        }
+
+        if (!empty($dsn['timeout'])) {
+            $result[PDO::ATTR_TIMEOUT] = (int) $dsn['timeout'];
+        }
 
         return $result;
     }

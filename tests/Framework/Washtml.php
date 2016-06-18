@@ -15,7 +15,9 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
     {
         // #1488850
         $html = '<p><a href="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">Firefox</a>'
-            .'<a href="vbscript:alert(document.cookie)">Internet Explorer</a></p>';
+            .'<a href="vbscript:alert(document.cookie)">Internet Explorer</a></p>'
+            .'<p><A href="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">Firefox</a>'
+            .'<A HREF="vbscript:alert(document.cookie)">Internet Explorer</a></p>';
 
         $washer = new rcube_washtml;
         $washed = $washer->wash($html);
@@ -38,6 +40,26 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * Test XSS in area's href (#5240)
+     */
+    function test_href_area()
+    {
+        $html = '<p><area href="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">'
+            . '<area href="vbscript:alert(document.cookie)">Internet Explorer</p>'
+            . '<area href="javascript:alert(document.domain)" shape=default>'
+            . '<p><AREA HREF="data:text/html,&lt;script&gt;alert(document.cookie)&lt;/script&gt;">'
+            . '<Area href="vbscript:alert(document.cookie)">Internet Explorer</p>'
+            . '<area HREF="javascript:alert(document.domain)" shape=default>';
+
+        $washer = new rcube_washtml;
+        $washed = $washer->wash($html);
+
+        $this->assertNotRegExp('/data:text/', $washed, "data:text/html in area href");
+        $this->assertNotRegExp('/vbscript:/', $washed, "vbscript: in area href");
+        $this->assertNotRegExp('/javascript:/', $washed, "javascript: in area href");
+    }
+
+    /**
      * Test handling HTML comments
      */
     function test_comments()
@@ -47,7 +69,7 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
         $html   = "<!--[if gte mso 10]><p>p1</p><!--><p>p2</p>";
         $washed = $washer->wash($html);
 
-        $this->assertEquals('<!-- node type 8 --><!-- html ignored --><!-- body ignored --><p>p2</p>', $washed, "HTML conditional comments (#1489004)");
+        $this->assertEquals('<!-- html ignored --><!-- body ignored --><p>p2</p>', $washed, "HTML conditional comments (#1489004)");
 
         $html   = "<!--TestCommentInvalid><p>test</p>";
         $washed = $washer->wash($html);
@@ -57,12 +79,12 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
         $html   = "<p>para1</p><!-- comment --><p>para2</p>";
         $washed = $washer->wash($html);
 
-        $this->assertEquals('<!-- html ignored --><!-- body ignored --><p>para1</p><!-- node type 8 --><p>para2</p>', $washed, "HTML comments - simple comment");
+        $this->assertEquals('<!-- html ignored --><!-- body ignored --><p>para1</p><p>para2</p>', $washed, "HTML comments - simple comment");
 
         $html   = "<p>para1</p><!-- <hr> comment --><p>para2</p>";
         $washed = $washer->wash($html);
 
-        $this->assertEquals('<!-- html ignored --><!-- body ignored --><p>para1</p><!-- node type 8 --><p>para2</p>', $washed, "HTML comments - tags inside (#1489904)");
+        $this->assertEquals('<!-- html ignored --><!-- body ignored --><p>para1</p><p>para2</p>', $washed, "HTML comments - tags inside (#1489904)");
     }
 
     /**
@@ -182,6 +204,14 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
 
         $this->assertRegExp('|line-height: 1;|', $washed, "Untouched line-height (#1489917)");
         $this->assertRegExp('|; height: 10px|', $washed, "Fixed height units");
+
+        $html     = "<div style=\"padding: 0px\n   20px;border:1px solid #000;\"></div>";
+        $expected = "<div style=\"padding: 0px 20px; border: 1px solid #000\"></div>";
+
+        $washer = new rcube_washtml;
+        $washed = $washer->wash($html);
+
+        $this->assertTrue(strpos($washed, $expected) !== false, "White-space and new-line characters handling");
     }
 
     /**
@@ -204,5 +234,44 @@ class Framework_Washtml extends PHPUnit_Framework_TestCase
         $washed = $washer->wash($html);
 
         $this->assertTrue(strpos($washed, $exp) !== false, "Style quotes XSS issue (#1490227)");
+    }
+
+    /**
+     * Test SVG cleanup
+     */
+    function test_style_wash_svg()
+    {
+        $svg = '<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" viewBox="0 0 100 100">
+  <polygon id="triangle" points="0,0 0,50 50,0" fill="#009900" stroke="#004400" onmouseover="alert(1)" />
+  <text x="50" y="68" font-size="48" fill="#FFF" text-anchor="middle"><![CDATA[410]]></text>
+  <script type="text/javascript">
+    alert(document.cookie);
+  </script>
+  <text x="10" y="25" >An example text</text>
+  <a xlink:href="http://www.w.pl"><rect width="100%" height="100%" /></a>
+  <foreignObject xlink:href="data:text/xml,%3Cscript xmlns=\'http://www.w3.org/1999/xhtml\'%3Ealert(1)%3C/script%3E"/>
+  <set attributeName="onmouseover" to="alert(1)"/>
+  <animate attributeName="onunload" to="alert(1)"/>
+  <animate attributeName="xlink:href" begin="0" from="javascript:alert(1)" />
+</svg>';
+
+        $exp = '<svg xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" version="1.1" baseProfile="full" viewBox="0 0 100 100">
+  <polygon id="triangle" points="0,0 0,50 50,0" fill="#009900" stroke="#004400" x-washed="onmouseover" />
+  <text x="50" y="68" font-size="48" fill="#FFF" text-anchor="middle">410</text>
+  <!-- script not allowed -->
+  <text x="10" y="25">An example text</text>
+  <a xlink:href="http://www.w.pl"><rect width="100%" height="100%" /></a>
+  <!-- foreignObject ignored -->
+  <set attributeName="onmouseover" x-washed="to" />
+  <animate attributeName="onunload" x-washed="to" />
+  <animate attributeName="xlink:href" begin="0" x-washed="from" />
+</svg>';
+
+        $washer = new rcube_washtml;
+        $washed = $washer->wash($svg);
+
+        $this->assertSame($washed, $exp, "SVG content");
     }
 }

@@ -251,6 +251,9 @@ html.mozilla #mailboxlist > li:first-child {
 	background-position: -28px -458px;
 }
 
+#s_interval {
+	margin: 3px 8px;
+}
 
 /*** message list ***/
 
@@ -378,6 +381,7 @@ table.messagelist.fixedcopy {
 .messagelist tr > .threads .listmenu,
 .messagelist tr > .attachment span.attachment,
 .messagelist tr > .attachment span.report,
+.messagelist tr > .attachment span.encrypted,
 .messagelist tr > .priority span.priority,
 .messagelist tr > .priority span.prio1,
 .messagelist tr > .priority span.prio2,
@@ -418,24 +422,33 @@ table.messagelist.fixedcopy {
 	background-position: -24px -1116px;
 }
 
+.messagelist tbody tr td.attachment span.encrypted {
+	background-position: 0 -2272px;
+}
+
 .messagelist thead tr th.priority span.priority {
 	background-position: -25px -1845px;
 }
 
 .messagelist tr td.priority span.prio5 {
-	background-position: 0 -1905px;
+	background-position: -2px -1905px;
 }
 
 .messagelist tr td.priority span.prio4 {
-	background-position: 0 -1885px;
+	background-position: -2px -1885px;
 }
 
 .messagelist tr td.priority span.prio2 {
-	background-position: 0 -1865px;
+	background-position: -2px -1865px;
 }
 
 .messagelist tr td.priority span.prio1 {
-	background-position: 0 -1845px;
+	background-position: -2px -1845px;
+}
+
+/* thread parent message with flagged children */
+.messagelist tbody tr.flaggedroot td.flag span {
+	background-position: -23px -1076px;
 }
 
 .messagelist tbody tr td.flag span.flagged {
@@ -627,7 +640,7 @@ h3.subject {
 
 .headers-table td {
 	color: #666;
-	padding: 2px 8px;
+	padding: 1px 8px;
 }
 
 .headers-table td.header,
@@ -652,7 +665,6 @@ h3.subject {
 
 .headers-table td.subject {
 	color: #333;
-	font-size: 110%;
 	font-weight: bold;
 }
 
@@ -861,19 +873,18 @@ div.hide-headers {
 
 #messagecontent .rightcol,
 #messagepreview .rightcol {
-	float: right;
-/*
 	position: absolute;
-	top: 10px;
-	right: 10px;
-	height: 90%;
-*/
+	right: 8px;
 	width: 230px;
-	margin: 8px;
 	min-height: 200px;
 	background: #f0f0f0;
 	padding: 8px;
 	border-radius: 4px;
+	z-index: 1;
+}
+
+#messagecontent .rightcol {
+	margin-top: 8px;
 }
 
 #messagebody {
@@ -958,12 +969,13 @@ div.message-partheaders .headers-table {
 }
 
 div.message-partheaders .headers-table td.header-title {
-	width: auto;
+	width: 1%;
 	padding-left: 0;
+	vertical-align: top;
 }
 
 div.message-partheaders .headers-table td.header {
-	width: 88%;
+	width: 99%;
 }
 
 #messagebody > hr {
@@ -1298,6 +1310,16 @@ div.message-partheaders .headers-table td.header {
 	bottom: 42px;
 }
 
+#composebodycontainer.mailvelope {
+	right: 0;
+	z-index: 10;
+}
+
+#composebodycontainer.mailvelope > iframe[scrolling='no'] {
+	position: relative;
+	top: -12px;
+}
+
 #composebody {
 	position: absolute;
 	top: 0;
@@ -1354,6 +1376,10 @@ div.message-partheaders .headers-table td.header {
 	-webkit-box-shadow: 0 0 5px 2px rgba(71,135,177, 0.9);
 }
 
+#compose-attachments .attachment-size {
+	color: #888;
+}
+
 #composeview-bottom .formbuttons.floating {
 	position: absolute;
 	width: auto;
@@ -1383,4 +1409,57 @@ div.message-partheaders .headers-table td.header {
 
 #uploadform form div {
 	margin: 4px 0;
+}
+
+.mailvelopekeyimport div.key {
+	position: relative;
+	margin-bottom: 2px;
+	padding: 1em;
+	background-color: #ebebeb;
+}
+
+.mailvelopekeyimport div.key.revoked,
+.mailvelopekeyimport div.key.disabled {
+	color: #a0a0a0;
+}
+
+.mailvelopekeyimport div.key label {
+	display: inline-block;
+	margin-right: 0.5em;
+}
+
+.mailvelopekeyimport div.key label:after {
+	content: ":";
+}
+
+.mailvelopekeyimport div.key label + a,
+.mailvelopekeyimport div.key label + span {
+	display: inline-block;
+	margin-right: 2em;
+	white-space: nowrap;
+}
+
+.mailvelopekeyimport div.key label + a {
+	font-weight: bold;
+}
+
+.mailvelopekeyimport ul.uids {
+	margin: 1em 0 0 0;
+	padding: 0;
+}
+
+.mailvelopekeyimport li.uid {
+	border: 0;
+	padding: 0.3em;
+}
+
+.mailvelopekeyimport div.key input.button.importkey {
+	position: absolute;
+	top: 0.8em;
+	right: 0.8em;
+	padding: 4px 6px;
+}
+
+.mailvelopekeyimport div.key input.button[disabled] {
+	display: none;
 }

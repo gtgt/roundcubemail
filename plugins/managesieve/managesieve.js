@@ -181,7 +181,7 @@ rcube_webmail.prototype.managesieve_setget = function()
   var id = this.filtersets_list.get_single_selection(),
     script = this.env.filtersets[id];
 
-  location.href = this.env.comm_path+'&_action=plugin.managesieve-action&_act=setget&_set='+urlencode(script);
+  this.goto_url('plugin.managesieve-action', {_act: 'setget', _set: script}, false, true);
 };
 
 // Set activate/deactivate request
@@ -226,7 +226,6 @@ rcube_webmail.prototype.managesieve_updatelist = function(action, o)
   this.set_busy(true);
 
   switch (action) {
-
     // Delete filter row
     case 'del':
       var id = o.id, list = this.filters_list;
@@ -247,11 +246,13 @@ rcube_webmail.prototype.managesieve_updatelist = function(action, o)
         var rowid = this.id.substr(6);
 
         // remove all attached events
-        $(this).unbind();
+        $(this).off();
 
         // update row id
-        if (rowid > id)
-          $(this).attr('id', 'rcmrow' + (rowid-1));
+        if (rowid > id) {
+          this.uid = rowid - 1;
+          $(this).attr('id', 'rcmrow' + this.uid);
+        }
       });
       list.init();
 
@@ -416,7 +417,7 @@ rcube_webmail.prototype.managesieve_dragend = function(e)
 rcube_webmail.prototype.managesieve_fixdragend = function(elem)
 {
   var p = this;
-  $(elem).bind('mouseup' + ((bw.iphone || bw.ipad) ? ' touchend' : ''), function(e) {
+  $(elem).on('mouseup' + ((bw.iphone || bw.ipad) ? ' touchend' : ''), function(e) {
     if (p.drag_active)
       p.filters_list.drag_mouse_up(e);
   });
@@ -580,10 +581,25 @@ rcube_webmail.prototype.managesieve_formbuttons = function(div)
   }
 };
 
+// update vacation addresses field with user identities
+rcube_webmail.prototype.managesieve_vacation_addresses = function(id)
+{
+  var lock = this.set_busy(true, 'loading');
+  this.http_post('plugin.managesieve-action', {_act: 'addresses', _aid: id}, lock);
+};
+
+// update vacation addresses field with user identities
+rcube_webmail.prototype.managesieve_vacation_addresses_update = function(id, addresses)
+{
+  var field = $('#vacation_addresses,#action_addresses' + (id || ''));
+  smart_field_reset(field.get(0), addresses);
+};
+
 function rule_header_select(id)
 {
   var obj = document.getElementById('header' + id),
     size = document.getElementById('rule_size' + id),
+    msg = document.getElementById('rule_message' + id),
     op = document.getElementById('rule_op' + id),
     header = document.getElementById('custom_header' + id + '_list'),
     mod = document.getElementById('rule_mod' + id),
@@ -595,7 +611,11 @@ function rule_header_select(id)
 
   if (h == 'size') {
     size.style.display = 'inline';
-    $.each([op, header, mod, trans, comp], function() { this.style.display = 'none'; });
+    $.each([op, header, mod, trans, comp, msg], function() { this.style.display = 'none'; });
+  }
+  else if (h == 'message') {
+    msg.style.display = 'inline';
+    $.each([op, header, mod, trans, comp, size], function() { this.style.display = 'none'; });
   }
   else {
     header.style.display = h != '...' ? 'none' : 'inline-block';
@@ -604,6 +624,7 @@ function rule_header_select(id)
     comp.style.display = '';
     mod.style.display = h == 'body' || h == 'currentdate' || h == 'date' ? 'none' : 'block';
     trans.style.display = h == 'body' ? 'block' : 'none';
+    msg.style.display = h == 'message' ? 'block' : 'none';
   }
 
   if (datepart)
@@ -623,7 +644,7 @@ function rule_op_select(obj, id, header)
   if (!header)
     header = document.getElementById('header' + id).value;
 
-  target.style.display = obj.value == 'exists' || obj.value == 'notexists' || header == 'size' ? 'none' : 'inline-block';
+  target.style.display = obj.value.match(/^(exists|notexists)$/) || header.match(/^(size|message)$/) ? 'none' : 'inline-block';
 };
 
 function rule_trans_select(id)
@@ -638,6 +659,7 @@ function rule_mod_select(id, header)
 {
   var obj = document.getElementById('rule_mod_op' + id),
     target = document.getElementById('rule_mod_type' + id),
+    duplicate = document.getElementById('rule_duplicate_div' + id),
     index = document.getElementById('rule_index_div' + id);
 
   if (!header)
@@ -646,7 +668,10 @@ function rule_mod_select(id, header)
   target.style.display = obj.value != 'address' && obj.value != 'envelope' ? 'none' : 'inline';
 
   if (index)
-    index.style.display = header != 'body' && header != 'currentdate' && header != 'size' && obj.value != 'envelope'  ? '' : 'none';
+    index.style.display = !header.match(/^(body|currentdate|size|message)$/) && obj.value != 'envelope'  ? '' : 'none';
+
+  if (duplicate)
+    duplicate.style.display = header == 'message' ? '' : 'none';
 };
 
 function rule_join_radio(value)
@@ -801,16 +826,32 @@ function smart_field_row(value, name, idx, size)
   return elem;
 }
 
+// Reset and fill the smart list input with new data
+function smart_field_reset(field, data)
+{
+  var id = field.id + '_list',
+    list = data.length ? data : [''];
+    area = $('#' + id);
+
+  area.empty();
+
+  // add input rows
+  $.each(list, function(i, v) {
+    area.append(smart_field_row(v, field.name, i, $(field).data('size')));
+  });
+}
+
 // Register onmouse(leave/enter) events for tips on specified form element
 rcube_webmail.prototype.managesieve_tip_register = function(tips)
 {
   var n, framed = parent.rcmail,
     tip = framed ? parent.rcmail.env.ms_tip_layer : rcmail.env.ms_tip_layer;
 
-  for (var n in tips) {
+  for (n in tips) {
     $('#'+tips[n][0])
       .data('tip', tips[n][1])
-      .bind('mouseenter', function(e) {
+      .mouseleave(function(e) { tip.hide(); })
+      .mouseenter(function(e) {
         var elem = $(this),
           offset = elem.offset(),
           left = offset.left,
@@ -827,8 +868,7 @@ rcube_webmail.prototype.managesieve_tip_register = function(tips)
         top -= tip.height();
 
         tip.css({left: left, top: top, minWidth: (minwidth-2) + 'px'}).show();
-      })
-    .bind('mouseleave', function(e) { tip.hide(); });
+      });
   }
 };
 
@@ -924,6 +964,13 @@ function sieve_form_init()
     .click(function() {  // show drop-down upon clicks
       $(this).autocomplete('search', $(this).val() || ' ');
     })
+
+  // display advanced controls when contain errors
+  $('input.error').each(function() {
+    if (String(this.id).match(/([0-9]+)$/)) {
+      $('#ruleadv' + RegExp.$1 + '.show').click();
+    }
+  });
 }
 
 
@@ -953,7 +1000,7 @@ rcube_webmail.prototype.managesieve_create = function(force)
   }
 
   // build dialog window content
-  html = '<fieldset><legend>'+this.gettext('managesieve.usedata')+'</legend><ul>';
+  html = '<fieldset><legend>'+this.get_label('managesieve.usedata')+'</legend><ul>';
   for (i in this.env.sieve_headers)
     html += '<li><input type="checkbox" name="headers[]" id="sievehdr'+i+'" value="'+i+'" checked="checked" />'
       +'<label for="sievehdr'+i+'">'+this.env.sieve_headers[i][0]+':</label> '+this.env.sieve_headers[i][1]+'</li>';
@@ -962,11 +1009,11 @@ rcube_webmail.prototype.managesieve_create = function(force)
   dialog.html(html);
 
   // [Next Step] button action
-  buttons[this.gettext('managesieve.nextstep')] = function () {
+  buttons[this.get_label('managesieve.nextstep')] = function () {
     // check if there's at least one checkbox checked
     var hdrs = $('input[name="headers[]"]:checked', dialog);
     if (!hdrs.length) {
-      alert(rcmail.gettext('managesieve.nodata'));
+      alert(rcmail.get_label('managesieve.nodata'));
       return;
     }
 
@@ -986,7 +1033,7 @@ rcube_webmail.prototype.managesieve_create = function(force)
 
     // Change [Next Step] button with [Save] button
     buttons = {};
-    buttons[rcmail.gettext('save')] = function() {
+    buttons[rcmail.get_label('save')] = function() {
       var win = $('iframe', dialog).get(0).contentWindow;
       win.rcmail.managesieve_save();
     };
@@ -998,7 +1045,7 @@ rcube_webmail.prototype.managesieve_create = function(force)
     modal: false,
     resizable: true,
     closeOnEscape: !bw.ie7,  // disable for performance reasons
-    title: this.gettext('managesieve.newfilter'),
+    title: this.get_label('managesieve.newfilter'),
     close: function() { rcmail.managesieve_dialog_close(); },
     buttons: buttons,
     minWidth: 600,

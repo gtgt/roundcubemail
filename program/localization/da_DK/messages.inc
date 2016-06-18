@@ -5,7 +5,7 @@
  | localization/<lang>/messages.inc                                      |
  |                                                                       |
  | Localization file of the Roundcube Webmail client                     |
- | Copyright (C) 2005-2014, The Roundcube Dev Team                       |
+ | Copyright (C) 2005-2015, The Roundcube Dev Team                       |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -22,6 +22,7 @@ $messages['sessionerror'] = 'Din session er ugyldig eller udløbet.';
 $messages['storageerror'] = 'Forbindelse til e-mailserveren fejlede.';
 $messages['servererror'] = 'Server fejl!';
 $messages['servererrormsg'] = 'Server fejl: $msg';
+$messages['accountlocked'] = 'For mange mislykkede login-forsøg. Prøv igen senere.';
 $messages['connerror'] = 'Forbindelsesfejl (kunne ikke oprette forbindelse til server)!';
 $messages['dberror'] = 'Database fejl!';
 $messages['windowopenerror'] = 'Popup-vinduet blev blokeret!';
@@ -39,6 +40,7 @@ $messages['nomessages'] = 'Ingen beskeder';
 $messages['refreshing'] = 'Opdaterer...';
 $messages['loading'] = 'Indlæser...';
 $messages['uploading'] = 'Uploader fil...';
+$messages['attaching'] = 'Vedhæfter fil...';
 $messages['uploadingmany'] = 'Uploader filer...';
 $messages['loadingdata'] = 'Indlæser data...';
 $messages['checkingmail'] = 'Tjekker for nye beskeder...';
@@ -50,10 +52,10 @@ $messages['successfullysaved'] = 'Gemt succesfuldt';
 $messages['savingresponse'] = 'Gemmer svartekst...';
 $messages['deleteresponseconfirm'] = 'Er du sikker på, at du ønsker at slette svarteksten?';
 $messages['addedsuccessfully'] = 'Kontakten blev tilføjet adressebogen.';
-$messages['contactexists'] = 'Der er allerede en kontakt med denne e-mailadresse.';
 $messages['contactnameexists'] = 'En kontakt med samme navn eksisterer allerede.';
 $messages['blockedimages'] = 'For at beskytte dit privatliv er billeder fra eksterne internetservere blokeret.';
 $messages['encryptedmessage'] = 'Beskeden er krypteret og kan ikke vises. Beklager!';
+$messages['externalmessagedecryption'] = 'Dette er en krypteret meddelelse og kan dekrypteres med din browser-udvidelse.';
 $messages['nocontactsfound'] = 'Ingen kontakter blev fundet.';
 $messages['contactnotfound'] = 'Den søgte kontakt blev ikke fundet.';
 $messages['contactsearchonly'] = 'Indtast søgeord for at finde kontakter.';
@@ -80,7 +82,6 @@ $messages['formincomplete'] = 'Formularen var ikke fuldstændig fyldt ud.';
 $messages['noemailwarning'] = 'Indtast venligst en gyldig e-mailadresse.';
 $messages['nonamewarning']  = 'Angiv venligst et navn.';
 $messages['nopagesizewarning'] = 'Angiv sidestørrelsen.';
-$messages['nosenderwarning'] = 'Indtast venligst afsenders e-mailadresse.';
 $messages['norecipientwarning'] = 'Indtast mindst én modtager.';
 $messages['nosubjectwarning']  = '\'Emne\'-feltet er tomt. Kunne du tænke dig at skrive et nu?';
 $messages['nobodywarning'] = 'Send denne besked uden tekst?';
@@ -137,7 +138,6 @@ $messages['importconfirmskipped'] = '<b>Sprang over $skipped eksisterende kontak
 $messages['importmessagesuccess'] = 'Importerede $nr beskeder';
 $messages['importmessageerror'] = 'Import mislykkedes! Den uploadede fil er ikke en gyldig besked eller mailbox-fil';
 $messages['opnotpermitted'] = 'Handlingen er ikke tilladt!';
-$messages['nofromaddress'] = 'Der mangler en e-mailadresse i den valgte identitet.';
 $messages['editorwarning'] = 'Al formatering af teksten kan forsvinde, hvis der skiftes editor Vil du fortsætte?';
 $messages['httpreceivedencrypterror'] = 'Der er opstået en fatal konfigurationsfejl. Kontakt venligst din system-administrator med det samme. <b>Din besked kunne ikke afsendes.</b>';
 $messages['smtpconnerror'] = 'SMTP fejl ($code): Forbindelsen til serveren afbrudt';
@@ -146,7 +146,6 @@ $messages['smtpfromerror'] = 'SMTP fejl ($code): Kunne ikke afsende som "$from" 
 $messages['smtptoerror'] = 'SMTP fejl ($code): Kunne ikke tilføje modtageren "$to" ($msg)';
 $messages['smtprecipientserror'] = 'SMTP fejl: Kan ikke fortolke listen af modtagere.';
 $messages['smtperror'] = 'SMTP fejl: $msg';
-$messages['emailformaterror'] = 'Ugyldig e-mailadresse: $email';
 $messages['toomanyrecipients'] = 'For mange modtagere. Reducer antallet af modtagere til $max.';
 $messages['maxgroupmembersreached'] = 'Antallet af gruppemedlemmer overstiger maksimum på $max.';
 $messages['internalerror'] = 'En intern fejl opstod. Prøv venligst igen.';
@@ -177,4 +176,11 @@ $messages['parentnotwritable'] = 'Kan ikke oprette/flytte mappe ind i valgt mapp
 $messages['messagetoobig'] = 'Denne del af beskeden er for stor til at blive behandlet.';
 $messages['attachmentvalidationerror'] = 'ADVARSEL! Den vedhæftede fil er mistænkelig - Typen stemmer ikke overens med den oplyste type. Hvis du ikke har tillid til afsender, skal du ikke åbne filen da den kan indholde onsindet indhold. <br/><br/><em>Forventet: $expected; Fundet: $detected</em>';
 $messages['noscriptwarning'] = 'Advarsel: Denne webmailclient kræver Javascript! For at kunne bruge den slå venligst Javascripts til i din browserindstillinger.';
-?>
+$messages['messageissent'] = 'Beskeden er allerede sendt, men ikke gemt endnu. Vil du gemme den nu?';
+$messages['errnotfound'] = 'Filen blev ikke fundet';
+$messages['errnotfoundexplain'] = 'Den efterspurgte ressource blev ikke fundet!';
+$messages['errfailedrequest'] = 'Efterspørgslen fejlede';
+$messages['errauthorizationfailed'] = 'Godkendelse fejlede';
+$messages['errunauthorizedexplain'] = 'Kunne ikke verificere, at du har ret til adgang til denne service!';
+$messages['errcontactserveradmin'] = 'Kontakt venligst din serveradministrator.';
+$messages['clicktoresumesession'] = 'Klik her for at genoptage din tidligere session';

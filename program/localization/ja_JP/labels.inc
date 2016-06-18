@@ -5,7 +5,7 @@
  | localization/<lang>/labels.inc                                        |
  |                                                                       |
  | Localization file of the Roundcube Webmail client                     |
- | Copyright (C) 2005-2013, The Roundcube Dev Team                       |
+ | Copyright (C) 2005-2015, The Roundcube Dev Team                       |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -101,7 +101,7 @@ $labels['longdec']	= '12月';
 $labels['today'] = '今日';
 $labels['refresh']          = '再読込み';
 $labels['checkmail']        = '新しく届いたメッセージを確認';
-$labels['compose']          = 'メッセージの作成';
+$labels['compose']          = '新規作成';
 $labels['writenewmessage']  = '新しいメッセージを作成';
 $labels['reply']            = '返信';
 $labels['replytomessage']   = '送信者に返信';
@@ -195,6 +195,12 @@ $labels['searchscope'] = 'スコープ';
 $labels['currentfolder'] = '現在のフォルダー';
 $labels['subfolders'] = 'このフォルダーと下位のフォルダー';
 $labels['allfolders'] = 'すべてのフォルダー';
+$labels['searchinterval-1W'] = '1週間より前';
+$labels['searchinterval-1M'] = '1か月より前';
+$labels['searchinterval-1Y'] = '1年より前';
+$labels['searchinterval1W'] = '1週間以内';
+$labels['searchinterval1M'] = '1か月以内';
+$labels['searchinterval1Y'] = '1年以内';
 $labels['openinextwin'] = '新しいウィンドウで開く';
 $labels['emlsave'] = 'ダウンロード(.eml形式)';
 $labels['changeformattext'] = 'テキスト形式で表示';
@@ -214,6 +220,15 @@ $labels['selectimage']    = '画像を選択';
 $labels['addimage']       = '画像を追加';
 $labels['selectmedia']    = '動画を選択';
 $labels['addmedia']       = '動画を追加';
+$labels['encrypt']        = '暗号化';
+$labels['encryptmessage'] = 'メッセージを暗号化';
+$labels['encryptmessagemailvelope'] = 'Mailvelopeでメッセージを暗号化';
+$labels['importpubkeys']  = '公開鍵をインポート';
+$labels['encryptedsendialog'] = '暗号化したメッセージを送信中';
+$labels['keyid']          = 'キーID';
+$labels['keylength']      = 'ビット';
+$labels['keyexpired']     = '期限切れ';
+$labels['keyrevoked']     = '取り消し済み';
 $labels['editidents']    = '識別情報を編集';
 $labels['spellcheck']    = 'スペル';
 $labels['checkspelling'] = 'スペルチェック';
@@ -221,6 +236,7 @@ $labels['resumeediting'] = '編集を再開';
 $labels['revertto']      = '元に戻す';
 $labels['restore'] = '回復';
 $labels['restoremessage'] = 'メッセージを回復しますか?';
+$labels['ignore'] = '無視';
 $labels['responses'] = '回答';
 $labels['insertresponse'] = '回答を挿入';
 $labels['manageresponses'] = '回答を管理';
@@ -233,7 +249,7 @@ $labels['responsetext'] = '回答の文章';
 $labels['attach'] = '添付';
 $labels['attachments'] = '添付ファイル';
 $labels['upload'] = 'アップロード';
-$labels['uploadprogress'] = '$percent ($current / $total)';
+$labels['uploadprogress'] = '$percent ($totalの$current)';
 $labels['close']  = '閉じる';
 $labels['messageoptions']  = 'メッセージのオプション...';
 $labels['togglecomposeoptions'] = '作成のオプションを切り替え';
@@ -297,6 +313,7 @@ $labels['searchresult'] = '検索の結果';
 $labels['advsearch'] = '高度な検索';
 $labels['advanced'] = '高度';
 $labels['other'] = 'その他';
+$labels['printcontact'] = '連絡先を印刷';
 $labels['typehome']   = '自宅';
 $labels['typework']   = '職場';
 $labels['typeother']  = 'その他';
@@ -320,7 +337,7 @@ $labels['contactnameandorg'] = '名前と組織';
 $labels['personalinfo'] = '個人情報';
 $labels['contactphoto'] = '連絡先の写真';
 $labels['edit']   = '編集';
-$labels['cancel'] = '取り消し';
+$labels['cancel'] = '取り止め';
 $labels['save']   = '保存';
 $labels['delete'] = '削除';
 $labels['rename'] = '名前を変更';
@@ -406,7 +423,7 @@ $labels['askuser'] = '開封確認の送信を確認';
 $labels['autosend'] = '開封確認を送信';
 $labels['autosendknown'] = '送信者が連絡先に登録されていれば送信、それ以外は確認';
 $labels['autosendknownignore'] = '送信者が連絡先に登録されていれば送信、それ以外は無視';
-$labels['ignore'] = '無視';
+$labels['ignorerequest'] = '要求を無視';
 $labels['readwhendeleted'] = '削除したメッセージを既読に設定';
 $labels['flagfordeletion'] = '削除する代わりに削除済みフラグを設定';
 $labels['skipdeleted'] = '削除済みのメッセージを表示しない';
@@ -415,6 +432,7 @@ $labels['deletejunk'] = '迷惑メールのメッセージを直接削除';
 $labels['showremoteimages'] = '外部のインライン画像を表示';
 $labels['fromknownsenders'] = '送信者が知人の場合';
 $labels['always'] = '常時';
+$labels['alwaysbutplain'] = 'テキスト形式で返信するときを除いて常時';
 $labels['showinlineimages'] = 'メッセージに添付された画像を下に表示';
 $labels['autosavedraft']  = '自動的に下書きを保存';
 $labels['everynminutes']  = '$n分毎';
@@ -450,6 +468,8 @@ $labels['autoaddsignature'] = '自動的に署名を付加';
 $labels['newmessageonly'] = '新しいメッセージだけ';
 $labels['replyandforwardonly'] = '返信と転送だけ';
 $labels['insertsignature'] = '署名を挿入';
+$labels['sigbelow'] = '引用したメッセージの後に署名を置く';
+$labels['sigseparator'] = '強制的に署名に標準の分離記号を使用';
 $labels['previewpanemarkread']  = 'プレビューしたメッセージを既読に設定';
 $labels['afternseconds']  = '$n秒後';
 $labels['reqmdn'] = '常に開封確認通知を要求';
@@ -558,4 +578,23 @@ $labels['arialabelreplyalloptions'] = '全員に返信のオプション';
 $labels['arialabelmoremessageactions'] = 'さらにメッセージを操作';
 $labels['arialabelmarkmessagesas'] = '選択したメッセージに次のマーク...';
 $labels['arialabelcomposeoptions'] = '作成のオプション';
+$labels['arialabelresponsesmenu'] = '回答テンプレートメニュー';
+$labels['arialabelattachmentuploadform'] = '添付アップロードフォーム';
+$labels['arialabelattachmentpreview'] = '添付プレビュー';
+$labels['ariasummarycomposecontacts'] = '宛先として選択する連絡先とグループの一覧';
+$labels['arialabelcontactexportoptions'] = '連絡先のエクスポートのオプション';
+$labels['arialabelabookgroupoptions'] = 'アドレス帳・グループのオプション';
+$labels['arialabelpreferencesform'] = '設定のフォーム';
+$labels['arialabelidentityeditfrom'] = '識別情報のフォーム';
+$labels['arialabelresonseeditfrom'] = '回答のフォーム';
+$labels['arialabelsearchterms'] = '検索語';
+$labels['helplistnavigation'] = 'キーボードのナビゲーションの一覧';
+$labels['helplistkeyboardnavigation'] = "上矢印・下矢印: 選択する行を移動します。
+スペース: 現在の行を選択します。
+シフトキーを押しながら上矢印・下矢印: 上・下の行を選択に追加します。
+コントロールきーを押しながらスペース: 現在の行を選択に追加または削除します。";
+$labels['helplistkeyboardnavmessages'] = "右矢印・左矢印: メッセージのスレッドを展開・折り畳みします。(スレッドモードだけ)
+改行: 現在・選択しているメッセージを開きます。
+削除: 選択しているメッセージをゴミ箱に移動します。";
+$labels['helplistkeyboardnavcontacts'] = "改行: 現在・選択中の連絡先を開きます。";
 ?>

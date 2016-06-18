@@ -5,7 +5,7 @@
  | localization/<lang>/labels.inc                                        |
  |                                                                       |
  | Localization file of the Roundcube Webmail client                     |
- | Copyright (C) 2005-2013, The Roundcube Dev Team                       |
+ | Copyright (C) 2005-2015, The Roundcube Dev Team                       |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -180,6 +180,7 @@ $labels['quota'] = 'Helyfoglalás';
 $labels['unknown']  = 'ismeretlen';
 $labels['unlimited']  = 'korlátlan';
 $labels['quotatype'] = 'Kvóta típus';
+$labels['quotatotal'] = 'Limit';
 $labels['quotaused'] = 'Használt';
 $labels['quotastorage'] = 'Lemez méret';
 $labels['quotamessage'] = 'Üzenet darab';
@@ -194,6 +195,12 @@ $labels['searchscope'] = 'Hatókör';
 $labels['currentfolder'] = 'Aktuális mappa';
 $labels['subfolders'] = 'Ez és az almappák';
 $labels['allfolders'] = 'Minden mappa';
+$labels['searchinterval-1W'] = 'egy hétnél régebbi';
+$labels['searchinterval-1M'] = 'egy hónapnál régebbi';
+$labels['searchinterval-1Y'] = 'több mint egy éves';
+$labels['searchinterval1W'] = 'egy hétnél korábbi';
+$labels['searchinterval1M'] = 'egy hónapnál korábbi';
+$labels['searchinterval1Y'] = 'egy évnél korábbi';
 $labels['openinextwin'] = 'Megnyitás új ablakban';
 $labels['emlsave'] = 'Letöltés (.eml)';
 $labels['changeformattext'] = 'Megjelenítés sima szöveges formátumban';
@@ -213,6 +220,15 @@ $labels['selectimage']    = 'Kép kijelőlés';
 $labels['addimage']       = 'Kép hozzáadás';
 $labels['selectmedia']    = 'Film kijelölés';
 $labels['addmedia']       = 'Film hozzáadás';
+$labels['encrypt']        = 'Titkosítás';
+$labels['encryptmessage'] = 'Üzenet titkosítása';
+$labels['encryptmessagemailvelope'] = 'Üzenet titkosítása Mailvelope-vel';
+$labels['importpubkeys']  = 'Nyilvános kulcsok importálása';
+$labels['encryptedsendialog'] = 'Titkosított üzenet küldése';
+$labels['keyid']          = 'Kulcs ID';
+$labels['keylength']      = 'Bitek';
+$labels['keyexpired']     = 'Lejárt';
+$labels['keyrevoked']     = 'Visszvont';
 $labels['editidents']    = 'Azonosítók szerkesztése';
 $labels['spellcheck']    = 'Helyesírás ellenőrzés';
 $labels['checkspelling'] = 'Helyesírás-ellenőrzés';
@@ -296,6 +312,7 @@ $labels['searchresult'] = 'Keresés eredménye';
 $labels['advsearch'] = 'Részletes keresés';
 $labels['advanced'] = 'Haladó';
 $labels['other'] = 'Egyéb';
+$labels['printcontact'] = 'A kapcsolat nyomtatása';
 $labels['typehome']   = 'Otthon';
 $labels['typework']   = 'Munkahely';
 $labels['typeother']  = 'Egyéb';
@@ -427,6 +444,7 @@ $labels['2231folding'] = 'Teljes RFC 2231 ( pl. Thunderbird)';
 $labels['miscfolding'] = 'RFC 2047/2231 (MS Outlook)';
 $labels['2047folding'] = 'Full RFC 2047 (egyéb)';
 $labels['force7bit'] = 'MIME kódolás használata 8 bites karakterekhez';
+$labels['savelocalstorage'] = "Mentse a böngésző helyi adattárolóba (ideiglenes)";
 $labels['advancedoptions'] = 'Haladó beállítások';
 $labels['toggleadvancedoptions'] = 'Haladó beállítások kapcsolása';
 $labels['focusonnewmessage'] = 'Beérkező új üzenet ablakának fókuszba hozása';
@@ -526,5 +544,35 @@ $labels['vietnamese'] = 'Vietnámi';
 $labels['japanese'] = 'Japán';
 $labels['korean'] = 'Koreai';
 $labels['chinese'] = 'Kínai';
+$labels['arialabeltopnav'] = 'Ablak beállítás';
+$labels['arialabeltasknav'] = 'Alkalmazás feladatok';
+$labels['arialabeltoolbar'] = 'Alkamazás eszközsor';
 $labels['arialabelactivetask'] = 'Aktiv feladat';
+$labels['arialabelmessagessearchfilter'] = 'Email lista szűrő';
+$labels['arialabelmailsearchform'] = 'Email üzenet kereső űrlap';
+$labels['arialabelcontactsearchform'] = 'Kapcsolat kereső űrlap';
+$labels['arialabelmailquicksearchbox'] = 'Email kereső mező';
+$labels['arialabelquicksearchbox'] = 'Kereső mező';
+$labels['arialabelfoldersearchfilter'] = 'Mappa lista szűrő';
+$labels['arialabelfoldersearchform'] = 'Mappa kereső űrlap';
+$labels['arialabelfolderlist'] = 'Email mappa kiválasztás';
+$labels['arialabelmessagelist'] = 'Email üzenetek listázása';
+$labels['arialabelmailpreviewframe'] = 'Üzenet betekintő';
+$labels['arialabelmailboxmenu'] = 'Mappa műveletek menü';
+$labels['arialabellistselectmenu'] = 'Lista választék menü';
+$labels['arialabelthreadselectmenu'] = 'Témák szerinti listázás menü';
+$labels['arialabelmessagelistoptions'] = 'Üzenet lista megjelenítési és rendezési opciók';
+$labels['arialabelmailimportdialog'] = 'Üzenet importáls';
+$labels['arialabelmessagenav'] = 'Üzenet navigálás';
+$labels['arialabelmessagebody'] = 'Üzenet főrész';
+$labels['arialabelmessageactions'] = 'Üzenet műveletek';
+$labels['arialabelforwardingoptions'] = 'Továbbítási beállítások';
+$labels['arialabelreplyalloptions'] = 'Válasz mindenkinek beállítások';
+$labels['arialabelresponsesmenu'] = 'Sablon válaszok menű';
+$labels['arialabelattachmentpreview'] = 'Csatolmány előnézet';
+$labels['arialabelsearchterms'] = 'Kereső kifejezések';
+$labels['helplistkeyboardnavigation'] = "Nyilak fel/le: A sor fokusz/kiválasztás mozgatása.
+Szóköz: A fokuszban lévő sor kiválasztása.
+Shift + fel/le: Több sor kiválasztása az aktállíis sor alatt/felett.
+Ctrl + Szóköz: A fokszban levő sor hozzáadása a szelekcióhoz vagy törlése abból.";
 ?>

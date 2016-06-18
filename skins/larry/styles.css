@@ -1,7 +1,7 @@
 /**
  * Roundcube webmail styles for skin "Larry"
  *
- * Copyright (c) 2012, The Roundcube Dev Team
+ * Copyright (c) 2012-2015, The Roundcube Dev Team
  * Screendesign by FLINT / Büro für Gestaltung, bueroflint.com
  *
  * The contents are subject to the Creative Commons Attribution-ShareAlike
@@ -21,6 +21,11 @@ body {
 body.noscroll {
 	/* also avoids bounce effect in Chrome and Safari */
 	overflow: hidden;
+}
+
+.iphone body.noscroll {
+	/* revert on iPhone (#1490551) */
+	overflow: auto;
 }
 
 a {
@@ -428,6 +433,14 @@ a.button.delete span.icon {
 .pagenavbuttons {
 	position: relative;
 	top: -2px;
+}
+
+.pagenav .pagejumper {
+	text-align: center;
+	background: #f8f8f8;
+	padding: 3px 0;
+	background: linear-gradient(to bottom, #dddddd 0%, #f8f8f8 100%);
+	cursor: default;
 }
 
 a.iconbutton {
@@ -1678,6 +1691,15 @@ body.iframe .footerleft.floating:before,
 	padding: 10px;
 }
 
+.boxcontent .boxwarning {
+	margin: 0 0 10px;
+	display: block;
+	color: #960;
+	border: 1px solid #ffdf0e;
+	background: url(images/messages.png) #fef893 5px -85px no-repeat;
+	padding: 6px 12px 6px 30px;
+}
+
 .contentbox .scroller {
 	position: absolute;
 	top: 34px;
@@ -2000,6 +2022,18 @@ ul.proplist li {
 	opacity: 0.4;
 }
 
+.toolbar a.button.selected {
+	color: #1978a1;
+}
+
+.toolbar a.button.selected:focus {
+	color: #fff;
+}
+
+.toolbar a.button.hidden {
+	display: none;
+}
+
 .dropbutton {
 	display: inline-block;
 	position: relative;
@@ -2144,6 +2178,14 @@ ul.proplist li {
 	background-position: center -1932px;
 }
 
+.toolbar a.button.encrypt {
+	background-position: center -2025px;
+}
+
+.toolbar a.button.encrypt.selected {
+	background-position: center -2068px;
+}
+
 a.menuselector {
 	display: inline-block;
 	border: 1px solid #ababab;
@@ -2229,6 +2271,11 @@ a.iconbutton:focus,
 	text-shadow: 0px 1px 1px #fff;
 	padding-left: 30px;
 	background: url(images/quota.png) -100px 0 no-repeat;
+}
+
+#quotadisplay.p90,
+#quotadisplay.p100 {
+    color: #e03221;
 }
 
 table.quota-info {
@@ -2335,6 +2382,7 @@ ul.toolbarmenu li a.active {
 ul.toolbarmenu li a.active:hover,
 ul.toolbarmenu li a.active:focus,
 #rcmKSearchpane ul li.selected,
+#pagejump-selector ul li.selected,
 select.decorated option:hover,
 select.decorated option[selected='selected'] {
 	background-color: #00aad6;
@@ -2365,6 +2413,12 @@ ul.toolbarmenu li label {
 ul.toolbarmenu li.separator label {
 	color: #bbb;
 	font-style: italic;
+	padding: 0 8px;
+	line-height: 17px;
+}
+
+ul.toolbarmenu li input {
+	margin: 0;
 }
 
 ul.toolbarmenu li a.icon {
@@ -2450,6 +2504,17 @@ ul.toolbarmenu li span.move {
 
 ul.toolbarmenu li span.copy {
 	background-position: 0 -2150px;
+}
+
+#pagejump-selector {
+	max-height: 250px;
+	overflow-x: hidden;
+}
+
+#pagejump-selector ul li {
+	min-width: 45px;
+	padding: 2px 5px;
+	cursor: default;
 }
 
 #snippetslist {
@@ -3084,4 +3149,14 @@ ul.toolbarmenu li span.copy {
 
 _:not(), _:-moz-handler-blocked, .mozilla .mce-btn-small i {
 	line-height: 20px !important;
+}
+
+.mce-textbox {
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.mce-textbox:focus {
+	box-shadow: none;
+	outline: none;
 }

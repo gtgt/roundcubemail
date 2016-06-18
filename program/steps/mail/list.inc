@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | program/steps/mail/list.inc                                           |
  |                                                                       |
@@ -57,20 +57,6 @@ $threading = (bool) $RCMAIL->storage->get_threading();
 
 // Synchronize mailbox cache, handle flag changes
 $RCMAIL->storage->folder_sync($mbox_name);
-
-// initialize searching result if search_filter is used
-if ($_SESSION['search_filter'] && $_SESSION['search_filter'] != 'ALL') {
-    $search_request = md5($mbox_name.$_SESSION['search_scope'].$_SESSION['search_filter']);
-    $RCMAIL->storage->search($mbox_name, $_SESSION['search_filter'], RCUBE_CHARSET, rcmail_sort_column());
-
-    $_SESSION['search']         = $RCMAIL->storage->get_search_set();
-    $_SESSION['search_request'] = $search_request;
-
-    $OUTPUT->set_env('search_request', $search_request);
-    $OUTPUT->set_env('search_filter', $_SESSION['search_filter']);
-
-    $multifolder = is_a($_SESSION['search'][1], 'rcube_result_multifolder');
-}
 
 // fetch message headers
 if ($count = $RCMAIL->storage->count($mbox_name, $threading ? 'THREADS' : 'ALL', !empty($_REQUEST['_refresh']))) {

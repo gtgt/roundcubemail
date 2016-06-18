@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | program/steps/settings/save_identity.inc                              |
  |                                                                       |
@@ -135,7 +135,7 @@ if ($_POST['_iid']) {
     }
     else {
         // show error message
-        $OUTPUT->show_message($plugin['message'] ? $plugin['message'] : 'errorsaving', 'error', null, false);
+        $OUTPUT->show_message($plugin['message'] ?: 'errorsaving', 'error', null, false);
         $RCMAIL->overwrite_action('edit-identity');
         return;
     }
@@ -159,6 +159,8 @@ else if (IDENTITIES_LEVEL < 2) {
         $insert_id = $plugin['result'];
 
     if ($insert_id) {
+        $RCMAIL->plugins->exec_hook('identity_create_after', array('id' => $insert_id, 'record' => $save_data));
+
         $OUTPUT->show_message('successfullysaved', 'confirmation', null, false);
 
         $_GET['_iid'] = $insert_id;
@@ -175,7 +177,7 @@ else if (IDENTITIES_LEVEL < 2) {
     }
     else {
         // show error message
-        $OUTPUT->show_message($plugin['message'] ? $plugin['message'] : 'errorsaving', 'error', null, false);
+        $OUTPUT->show_message($plugin['message'] ?: 'errorsaving', 'error', null, false);
         $RCMAIL->overwrite_action('edit-identity');
         return;
     }
@@ -206,7 +208,7 @@ function rcmail_attach_images($html)
     global $RCMAIL;
 
     $offset = 0;
-    $regexp = '/\s(poster|src)\s*=\s*[\'"]*\S+upload-display\S+file=rcmfile([0-9]+)[\s\'"]*/';
+    $regexp = '/\s(poster|src)\s*=\s*[\'"]*\S+upload-display\S+file=rcmfile(\w+)[\s\'"]*/';
 
     while (preg_match($regexp, $html, $matches, 0, $offset)) {
         $file_id  = $matches[2];
@@ -216,7 +218,7 @@ function rcmail_attach_images($html)
             $file = $RCMAIL->plugins->exec_hook('attachment_get', $file);
 
             $data_uri .= 'src="data:' . $file['mimetype'] . ';base64,';
-            $data_uri .= base64_encode($file['data'] ? $file['data'] : file_get_contents($file['path']));
+            $data_uri .= base64_encode($file['data'] ?: file_get_contents($file['path']));
             $data_uri .= '" ';
         }
 

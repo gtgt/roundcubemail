@@ -24,6 +24,8 @@ CREATE TABLE `users` (
  `mail_host` varchar(128) NOT NULL,
  `created` datetime NOT NULL DEFAULT '1000-01-01 00:00:00',
  `last_login` datetime DEFAULT NULL,
+ `failed_login` datetime DEFAULT NULL,
+ `failed_login_counter` int(10) UNSIGNED DEFAULT NULL,
  `language` varchar(5),
  `preferences` longtext,
  PRIMARY KEY(`user_id`),
@@ -162,7 +164,7 @@ CREATE TABLE `identities` (
  `email` varchar(128) NOT NULL,
  `reply-to` varchar(128) NOT NULL DEFAULT '',
  `bcc` varchar(128) NOT NULL DEFAULT '',
- `signature` text,
+ `signature` longtext,
  `html_signature` tinyint(1) NOT NULL DEFAULT '0',
  PRIMARY KEY(`identity_id`),
  CONSTRAINT `user_id_fk_identities` FOREIGN KEY (`user_id`)
@@ -209,4 +211,4 @@ CREATE TABLE `system` (
 
 /*!40014 SET FOREIGN_KEY_CHECKS=1 */;
 
-INSERT INTO system (name, value) VALUES ('roundcube-version', '2014042900');
+INSERT INTO system (name, value) VALUES ('roundcube-version', '2015111100');

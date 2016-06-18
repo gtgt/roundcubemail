@@ -1,12 +1,12 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | Roundcube/rcube_ldap_generic.php                                      |
  |                                                                       |
  | This file is part of the Roundcube Webmail client                     |
  | Copyright (C) 2006-2014, The Roundcube Dev Team                       |
- | Copyright (C) 2012-2014, Kolab Systems AG                             |
+ | Copyright (C) 2012-2015, Kolab Systems AG                             |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -57,12 +57,13 @@ class rcube_ldap_generic extends Net_LDAP3
      * Get a specific LDAP entry, identified by its DN
      *
      * @param string $dn Record identifier
+     * @param array  $attributes Attributes to return
      *
      * @return array Hash array
      */
-    function get_entry($dn)
+    function get_entry($dn, $attributes = array())
     {
-        return parent::get_entry($dn, $this->attributes);
+        return parent::get_entry($dn, !empty($attributes) ? $attributes : $this->attributes);
     }
 
     /**
@@ -284,10 +285,11 @@ class rcube_ldap_generic extends Net_LDAP3
      * Turn an LDAP entry into a regular PHP array with attributes as keys.
      *
      * @param array $entry Attributes array as retrieved from ldap_get_attributes() or ldap_get_entries()
+     * @param bool  $flat  Convert one-element-array values into strings (not implemented)
      *
      * @return array Hash array with attributes as keys
      */
-    public static function normalize_entry($entry)
+    public static function normalize_entry($entry, $flat = false)
     {
         if (!isset($entry['count'])) {
             return $entry;
@@ -315,6 +317,47 @@ class rcube_ldap_generic extends Net_LDAP3
         }
 
         return $rec;
+    }
+
+    /**
+     * Compose an LDAP filter string matching all words from the search string
+     * in the given list of attributes.
+     *
+     * @param string  $value    Search value
+     * @param mixed   $attrs    List of LDAP attributes to search
+     * @param int     $mode     Matching mode:
+     *                          0 - partial (*abc*),
+     *                          1 - strict (=),
+     *                          2 - prefix (abc*)
+     * @return string LDAP filter
+     */
+    public static function fulltext_search_filter($value, $attributes, $mode = 1)
+    {
+        if (empty($attributes)) {
+            $attributes = array('cn');
+        }
+
+        $groups = array();
+        $value = str_replace('*', '', $value);
+        $words = $mode == 0 ? rcube_utils::tokenize_string($value, 1) : array($value);
+
+        // set wildcards
+        $wp = $ws = '';
+        if ($mode != 1) {
+            $ws = '*';
+            $wp = !$mode ? '*' : '';
+        }
+
+        // search each word in all listed attributes
+        foreach ($words as $word) {
+            $parts = array();
+            foreach ($attributes as $attr) {
+                $parts[] = "($attr=$wp" . self::quote_string($word) . "$ws)";
+            }
+            $groups[] = '(|' . join('', $parts) . ')';
+        }
+
+        return count($groups) > 1 ? '(&' . join('', $groups) . ')' : join('', $groups);
     }
 }
 

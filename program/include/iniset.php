@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | program/include/iniset.php                                            |
  |                                                                       |
@@ -21,7 +21,7 @@
 */
 
 // application constants
-define('RCMAIL_VERSION', '1.2-git');
+define('RCMAIL_VERSION', '1.3-git');
 define('RCMAIL_START', microtime(true));
 
 if (!defined('INSTALL_PATH')) {
@@ -65,14 +65,8 @@ require_once 'Roundcube/bootstrap.php';
 // register autoloader for rcmail app classes
 spl_autoload_register('rcmail_autoload');
 
-// backward compatybility (to be removed)
+// backward compatybility (to be removed in version 1.2.0)
 require_once INSTALL_PATH . 'program/include/bc.php';
-
-// load the UTF-8 portablity layer from Patchwork
-if (!function_exists('iconv') || !function_exists('utf8_encode') || !extension_loaded('mbstring')) {
-    \Patchwork\Utf8\Bootup::initAll();
-}
-
 
 /**
  * PHP5 autoloader routine for dynamic class loading

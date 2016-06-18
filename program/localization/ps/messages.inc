@@ -5,7 +5,7 @@
  | localization/<lang>/messages.inc                                      |
  |                                                                       |
  | Localization file of the Roundcube Webmail client                     |
- | Copyright (C) 2005-2014, The Roundcube Dev Team                       |
+ | Copyright (C) 2005-2015, The Roundcube Dev Team                       |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for skins & plugins.                |
@@ -30,7 +30,6 @@ $messages['savingmessage'] = 'استوزه خوندي کوي';
 $messages['messagesaved'] = 'استوزه په بارليک کې خوندي شوه';
 $messages['successfullysaved'] = 'په بري‌سره خوندي شوه';
 $messages['addedsuccessfully'] = 'اړيکلوری په بري سره پتې کتاب ته ور زيات شو';
-$messages['contactexists'] = 'يو اړيکلوری له دې برېښناليک پتې سره شتون لري';
 $messages['blockedimages'] = 'ستاسو د پټتيآ خوندي کېدو لپاره ، له لري انځورنه په دې استوزي‌کې بند کړئ';
 $messages['encryptedmessage'] = 'دا يوه پټه استوزه ده او نه څرګندېږي. بښنه غواړو';
 $messages['nocontactsfound'] = 'هېڅ اړيکلوری يې ونه موند';
@@ -49,7 +48,6 @@ $messages['formincomplete'] = 'دا پورمه بشپړه ډکه شوې نه د�
 $messages['noemailwarning'] = 'مهرباني وکړئ د يوه شته برېښناليک پته ورځای کړئ';
 $messages['nonamewarning']  = 'مهرباني‌وکړئ يو نوم وليکئ';
 $messages['nopagesizewarning'] = 'مهرباني‌وکړئ د پاڼې کچه ورکړئ';
-$messages['nosenderwarning'] = 'مهرباني وکړئ د استول شوي برېښناليک پته وليکئ';
 $messages['norecipientwarning'] = 'مهرباني‌وکړئ لږ تر لږه يو ترلاسه کوونکی وليکئ';
 $messages['nosubjectwarning']  = 'د مضمون ډګر تش دی يا تاسو غواړئ چې همدا اوس يو له هغو څخه وليکئ';
 $messages['nobodywarning'] = 'دا استوزه پرته له متن څخه استوئ؟';
@@ -79,5 +77,3 @@ $messages['addresswriterror'] = 'ټاکل شوی پتې کتاب د بياليک
 $messages['importwait'] = 'نقلوي...صبر وکړئ';
 $messages['importconfirm'] = '<b>په بشپړه توګه نقل شو $اړيکلوري داخل شول, $شته تيرشوي انټاير څخه تيرشول</b>:<p><em>$نومونه</em></p>';
 $messages['opnotpermitted'] = 'چار اجازه نه لري';
-$messages['nofromaddress'] = 'په ټاکل شوي پيژندنه کې برېښناليک پتې له لاسه ورکړي';
-?>

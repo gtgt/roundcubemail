@@ -1,6 +1,6 @@
 <?php
 
-/*
+/**
  +-----------------------------------------------------------------------+
  | program/steps/addressbook/show.inc                                    |
  |                                                                       |
@@ -28,8 +28,8 @@ $cid    = $cids ? array_shift($cids[$source]) : null;
 $CONTACTS  = rcmail_contact_source($source, true);
 $SOURCE_ID = $source;
 
-// read contact record
-if ($cid && ($record = $CONTACTS->get_record($cid, true))) {
+// read contact record (or get the one defined in 'save' action)
+if ($cid && ($record = ($CONTACT_RECORD ?: $CONTACTS->get_record($cid, true)))) {
     $OUTPUT->set_env('readonly', $CONTACTS->readonly || $record['readonly']);
     $OUTPUT->set_env('cid', $record['ID']);
 
@@ -66,11 +66,16 @@ function rcmail_contact_head($attrib)
         'head' => array(  // section 'head' is magic!
             'name' => $RCMAIL->gettext('contactnameandorg'),
             'content' => array(
-                'prefix' => array('type' => 'text'),
-                'firstname' => array('type' => 'text'),
-                'middlename' => array('type' => 'text'),
-                'surname' => array('type' => 'text'),
-                'suffix' => array('type' => 'text'),
+                'prefix'       => array('type' => 'text'),
+                'firstname'    => array('type' => 'text'),
+                'middlename'   => array('type' => 'text'),
+                'surname'      => array('type' => 'text'),
+                'suffix'       => array('type' => 'text'),
+                'name'         => array('type' => 'text'),
+                'nickname'     => array('type' => 'text'),
+                'organization' => array('type' => 'text'),
+                'department'   => array('type' => 'text'),
+                'jobtitle'     => array('type' => 'text'),
             ),
         ),
     );
@@ -89,7 +94,7 @@ function rcmail_contact_details($attrib)
         return false;
     }
 
-    $i_size = !empty($attrib['size']) ? $attrib['size'] : 40;
+    $i_size = $attrib['size'] ?: 40;
 
     $form = array(
         'contact' => array(
