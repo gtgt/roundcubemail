@@ -157,7 +157,7 @@ function rcmail_user_prefs($current = null)
     $sections['mailbox']     = array('id' => 'mailbox', 'section' => $RCMAIL->gettext('mailboxview'));
     $sections['mailview']    = array('id' => 'mailview','section' => $RCMAIL->gettext('messagesdisplaying'));
     $sections['compose']     = array('id' => 'compose', 'section' => $RCMAIL->gettext('messagescomposition'));
-    $sections['addressbook'] = array('id' => 'addressbook','section' => $RCMAIL->gettext('addressbook'));
+    $sections['addressbook'] = array('id' => 'addressbook','section' => $RCMAIL->gettext('contacts'));
     $sections['folders']     = array('id' => 'folders', 'section' => $RCMAIL->gettext('specialfolders'));
     $sections['server']      = array('id' => 'server',  'section' => $RCMAIL->gettext('serversettings'));
 
@@ -749,7 +749,7 @@ function rcmail_user_prefs($current = null)
                 );
             }
 
-            if (!isset($no_override['dsn_default']) && $RCMAIL->config->get('smtp_server')) {
+            if (!isset($no_override['dsn_default'])) {
                 if (!$current) {
                     continue 2;
                 }
@@ -1332,7 +1332,9 @@ function rcmail_folder_options($mailbox)
     global $RCMAIL;
 
     $options = $RCMAIL->get_storage()->folder_info($mailbox);
-    $options['protected'] = $options['is_root'] || ($options['special'] && $RCMAIL->config->get('protect_default_folders'));
+    $options['protected'] = $options['is_root']
+        || strtoupper($mailbox) === 'INBOX'
+        || ($options['special'] && $RCMAIL->config->get('protect_default_folders'));
 
     return $options;
 }

@@ -314,11 +314,6 @@ class rcube_utils
             return $value;
         }
 
-        // strip slashes if magic_quotes enabled
-        if (get_magic_quotes_gpc() || get_magic_quotes_runtime()) {
-            $value = stripslashes($value);
-        }
-
         // remove HTML tags if not allowed
         if (!$allow_html) {
             $value = strip_tags($value);
@@ -380,10 +375,11 @@ class rcube_utils
 
     /**
      * Replace all css definitions with #container [def]
-     * and remove css-inlined scripting
+     * and remove css-inlined scripting, make position style safe
      *
      * @param string CSS source code
      * @param string Container ID to use as prefix
+     * @param bool   Allow remote content
      *
      * @return string Modified CSS source
      */
@@ -410,6 +406,9 @@ class rcube_utils
                 $pos = $nested;
             $length = $pos2 - $pos - 1;
             $styles = substr($source, $pos+1, $length);
+
+            // Convert position:fixed to position:absolute (#5264)
+            $styles = preg_replace('/position:[\s\r\n]*fixed/i', 'position: absolute', $styles);
 
             // check every line of a style block...
             if ($allow_remote) {
@@ -798,7 +797,7 @@ class rcube_utils
         $date = preg_replace(
             array(
                 '/GMT\s*([+-][0-9]+)/',                     // support non-standard "GMTXXXX" literal
-                '/[^a-z0-9\x20\x09:+-\/]/i',                  // remove any invalid characters
+                '/[^a-z0-9\x20\x09:+-\/]/i',                // remove any invalid characters
                 '/\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*/i',   // remove weekday names
             ),
             array(
@@ -810,15 +809,47 @@ class rcube_utils
         $date = trim($date);
 
         // try to fix dd/mm vs. mm/dd discrepancy, we can't do more here
-        if (preg_match('/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/', $date, $m)) {
+        if (preg_match('/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(\s.*)?$/', $date, $m)) {
             $mdy   = $m[2] > 12 && $m[1] <= 12;
             $day   = $mdy ? $m[2] : $m[1];
             $month = $mdy ? $m[1] : $m[2];
-            $date  = sprintf('%04d-%02d-%02d 00:00:00', intval($m[3]), $month, $day);
+            $date  = sprintf('%04d-%02d-%02d%s', $m[3], $month, $day, $m[4] ?: ' 00:00:00');
         }
         // I've found that YYYY.MM.DD is recognized wrong, so here's a fix
-        else if (preg_match('/^(\d{4})\.(\d{1,2})\.(\d{1,2})$/', $date)) {
-            $date = str_replace('.', '-', $date) . ' 00:00:00';
+        else if (preg_match('/^(\d{4})\.(\d{1,2})\.(\d{1,2})(\s.*)?$/', $date, $m)) {
+            $date  = sprintf('%04d-%02d-%02d%s', $m[1], $m[2], $m[3], $m[4] ?: ' 00:00:00');
+        }
+
+        return $date;
+    }
+
+    /**
+     * Turns the given date-only string in defined format into YYYY-MM-DD format.
+     *
+     * Supported formats: 'Y/m/d', 'Y.m.d', 'd-m-Y', 'd/m/Y', 'd.m.Y', 'j.n.Y'
+     *
+     * @param string $date   Date string
+     * @param string $format Input date format
+     *
+     * @return strin Date string in YYYY-MM-DD format, or the original string
+     *               if format is not supported
+     */
+    public static function format_datestr($date, $format)
+    {
+        $format_items = preg_split('/[.-\/\\\\]/', $format);
+        $date_items   = preg_split('/[.-\/\\\\]/', $date);
+        $iso_format   = '%04d-%02d-%02d';
+
+        if (count($format_items) == 3 && count($date_items) == 3) {
+            if ($format_items[0] == 'Y') {
+                $date = sprintf($iso_format, $date_items[0], $date_items[1], $date_items[2]);
+            }
+            else if (strpos('dj', $format_items[0]) !== false) {
+                $date = sprintf($iso_format, $date_items[2], $date_items[1], $date_items[0]);
+            }
+            else if (strpos('mn', $format_items[0]) !== false) {
+                $date = sprintf($iso_format, $date_items[2], $date_items[0], $date_items[1]);
+            }
         }
 
         return $date;

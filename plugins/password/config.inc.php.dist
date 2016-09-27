@@ -56,6 +56,10 @@ $config['password_dovecotpw'] = '/usr/local/sbin/dovecotpw'; // for dovecot-1.x
 // Used for password_algorithm = 'dovecot'.
 $config['password_dovecotpw_method'] = 'CRAM-MD5';
 
+// Enables use of password with method prefix, e.g. {MD5}$1$LUiMYWqx$fEkg/ggr/L6Mb2X7be4i1/
+// when using password_algorithm=dovecot
+$config['password_dovecotpw_with_method'] = false;
+
 // Iteration count parameter for Blowfish-based hashing algo.
 // It must be between 4 and 31. Default: 12.
 // Be aware, the higher the value, the longer it takes to generate the password hashes.
@@ -114,10 +118,6 @@ $config['password_crypt_hash'] = 'md5';
 // Enable this option to use punycoded names
 $config['password_idn_ascii'] = false;
 
-// Enables use of password with crypt method prefix in %D, e.g. {MD5}$1$LUiMYWqx$fEkg/ggr/L6Mb2X7be4i1/
-// when using the %D macro (deprecated, use %P)
-$config['password_dovecotpw_with_method'] = false;
-
 // Using a password hash for %n and %q variables (deprecated, use %P).
 // Determine which hashing algorithm should be used to generate
 // the hashed new and current password for using them within the
@@ -157,7 +157,7 @@ $config['password_ldap_host'] = 'localhost';
 $config['password_ldap_port'] = '389';
 
 // TLS is started after connecting
-// Using TLS for password modification is recommanded.
+// Using TLS for password modification is recommended.
 // Default: false
 $config['password_ldap_starttls'] = false;
 
@@ -171,7 +171,7 @@ $config['password_ldap_basedn'] = 'dc=exemple,dc=com';
 
 // LDAP connection method
 // There is two connection method for changing a user's LDAP password.
-// 'user': use user credential (recommanded, require password_confirm_current=true)
+// 'user': use user credential (recommended, require password_confirm_current=true)
 // 'admin': use admin credential (this mode require password_ldap_adminDN and password_ldap_adminPW)
 // Default: 'user'
 $config['password_ldap_method'] = 'user';

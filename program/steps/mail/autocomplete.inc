@@ -58,14 +58,15 @@ else {
     $book_types = (array) $RCMAIL->config->get('autocomplete_addressbooks', 'sql');
 }
 
+$contacts = array();
 if (!empty($book_types) && strlen($search)) {
-    $contacts  = array();
     $sort_keys = array();
     $books_num = count($book_types);
     $search_lc = mb_strtolower($search);
+    $mode     |= rcube_addressbook::SEARCH_GROUPS;
 
-    foreach ($book_types as $id) {
-        $abook = $RCMAIL->get_address_book($id);
+    foreach ($book_types as $abook_id) {
+        $abook = $RCMAIL->get_address_book($abook_id);
         $abook->set_pagesize($MAXNUM);
 
         if ($result = $abook->search($RCMAIL->config->get('contactlist_fields'), $search, $mode, true, true, 'email')) {
@@ -92,7 +93,12 @@ if (!empty($book_types) && strlen($search)) {
 
                     // skip duplicates
                     if (empty($contacts[$index])) {
-                        $contact = array('name' => $contact, 'type' => $sql_arr['_type']);
+                        $contact = array(
+                            'name'   => $contact,
+                            'type'   => $sql_arr['_type'],
+                            'id'     => $sql_arr['contact_id'],
+                            'source' => $abook_id,
+                        );
 
                         if (($display = rcube_addressbook::compose_search_name($sql_arr, $email, $name)) && $display != $contact['name']) {
                             $contact['display'] = $display;
@@ -135,7 +141,7 @@ if (!empty($book_types) && strlen($search)) {
                                 'email'  => $email,
                                 'type'   => 'group',
                                 'id'     => $group['ID'],
-                                'source' => $id,
+                                'source' => $abook_id,
                             );
 
                             if (count($contacts) >= $MAXNUM) {
@@ -152,7 +158,7 @@ if (!empty($book_types) && strlen($search)) {
                             'name'   => $group['name'] . ' (' . intval($result->count) . ')',
                             'type'   => 'group',
                             'id'     => $group['ID'],
-                            'source' => $id
+                            'source' => $abook_id,
                         );
 
                         if (count($contacts) >= $MAXNUM) {
@@ -174,6 +180,15 @@ if (!empty($book_types) && strlen($search)) {
         $contacts = array_values($sort_keys);
     }
 }
+
+
+// Allow autocomplete result optimization via plugin
+$pluginResult = $RCMAIL->plugins->exec_hook('contacts_autocomplete_after', array(
+    'search'   => $search,
+    'contacts' => $contacts, // Provide already-found contacts to plugin if they are required
+));
+$contacts = $pluginResult['contacts'];
+
 
 $OUTPUT->command('ksearch_query_results', $contacts, $search, $reqid);
 $OUTPUT->send();

@@ -42,6 +42,7 @@ class enigma_driver_gnupg extends enigma_driver
         $homedir = $this->rc->config->get('enigma_pgp_homedir', INSTALL_PATH . 'plugins/enigma/home');
         $debug   = $this->rc->config->get('enigma_debug');
         $binary  = $this->rc->config->get('enigma_pgp_binary');
+        $agent   = $this->rc->config->get('enigma_pgp_agent');
 
         if (!$homedir) {
             return new enigma_error(enigma_error::INTERNAL,
@@ -83,6 +84,9 @@ class enigma_driver_gnupg extends enigma_driver
         }
         if ($binary) {
             $options['binary'] = $binary;
+        }
+        if ($agent) {
+            $options['agent'] = $agent;
         }
 
         // Create Crypt_GPG object
@@ -215,13 +219,21 @@ class enigma_driver_gnupg extends enigma_driver
      * Key export.
      *
      * @param string Key ID
+     * @param bool   Include private key
      *
      * @return mixed Key content or enigma_error
      */
-    public function export($keyid)
+    public function export($keyid, $with_private = false)
     {
         try {
-            return $this->gpg->exportPublicKey($keyid, true);
+            $key = $this->gpg->exportPublicKey($keyid, true);
+
+            if ($with_private) {
+                $priv = $this->gpg->exportPrivateKey($keyid, true);
+                $key .= $priv;
+            }
+
+            return $key;
         }
         catch (Exception $e) {
             return $this->get_error_from_exception($e);

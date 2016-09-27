@@ -59,6 +59,7 @@
 		<li role="menuitem"><label><input type="radio" name="s_scope" value="sub" id="s_scope_sub" onclick="UI.set_searchscope(this)" /> <span><roundcube:label name="subfolders" /></span></label></li>
 		<li role="menuitem"><label><input type="radio" name="s_scope" value="all" id="s_scope_all" onclick="UI.set_searchscope(this)" /> <span><roundcube:label name="allfolders" /></span></label></li>
 	</ul>
+	<div class="buttons"><a class="button" href="#" onclick="if (rcmail.command('search')) UI.show_popup('searchmenu',false)"><roundcube:label name="search" /></a></div>
 </div>
 
 </div>
@@ -130,7 +131,7 @@
 		<span class="pagenavbuttons">
 		<roundcube:button command="firstpage" type="link" class="button firstpage disabled" classAct="button firstpage" classSel="button firstpage pressed" innerClass="inner" title="firstpage" label="first" />
 		<roundcube:button command="previouspage" type="link" class="button prevpage disabled" classAct="button prevpage" classSel="button prevpage pressed" innerClass="inner" title="previouspage" label="previous" />
-		<input id="pagejumper" class="pagejumper" type="text" size="3" disabled="disabled" title="<roundcube:label name="currpage" />" />
+		<input id="pagejumper" class="pagejumper" type="text" size="3" disabled title="<roundcube:label name="currpage" />" />
 		<roundcube:button command="nextpage" type="link" class="button nextpage disabled" classAct="button nextpage" classSel="button nextpage pressed" innerClass="inner" title="nextpage" label="next" />
 		<roundcube:button command="lastpage" type="link" class="button lastpage disabled" classAct="button lastpage" classSel="button lastpage pressed" innerClass="inner" title="lastpage" label="last" />
 		</span>
@@ -170,7 +171,7 @@
 	<ul class="toolbarmenu" id="mailboxoptionsmenu" role="menu" aria-labelledby="aria-label-mailboxmenu">
 		<roundcube:button command="expunge" type="link-menuitem" label="compact" classAct="active" />
 		<roundcube:button command="purge" type="link-menuitem" label="empty" classAct="active" />
-		<roundcube:button command="import-messages" type="link-menuitem" name="messageimport" classAct="active" label="importmessages" onclick="if(rcmail.command_enabled('import-messages'))UI.show_uploadform();return false" />
+		<roundcube:button command="import-messages" type="link-menuitem" name="messageimport" classAct="active" label="importmessages" onclick="if (rcmail.command_enabled('import-messages')) rcmail.upload_input('uploadform')" />
 		<roundcube:button command="folders" task="settings" type="link-menuitem" label="managefolders" classAct="active" />
 		<roundcube:container name="mailboxoptions" id="mailboxoptionsmenu" />
 	</ul>
@@ -203,8 +204,8 @@
 	<fieldset class="floating">
 		<legend><roundcube:label name="listcolumns" /></legend>
 		<ul class="proplist">
-			<li><label class="disabled"><input type="checkbox" name="list_col[]" value="threads" checked="checked" disabled="disabled" /> <span><roundcube:label name="threads" /></span></label></li>
-			<li><label class="disabled"><input type="checkbox" name="list_col[]" value="subject" checked="checked" disabled="disabled" /> <span><roundcube:label name="subject" /></span></label></li>
+			<li><label class="disabled"><input type="checkbox" name="list_col[]" value="threads" checked disabled /> <span><roundcube:label name="threads" /></span></label></li>
+			<li><label class="disabled"><input type="checkbox" name="list_col[]" value="subject" checked disabled /> <span><roundcube:label name="subject" /></span></label></li>
 			<li><label><input type="checkbox" name="list_col[]" value="fromto" /> <span><roundcube:label name="fromto" /></span></label></li>
 			<li><label><input type="checkbox" name="list_col[]" value="from" /> <span><roundcube:label name="from" /></span></label></li>
 			<li><label><input type="checkbox" name="list_col[]" value="to" /> <span><roundcube:label name="to" /></span></label></li>
@@ -251,14 +252,7 @@
 	</div>
 </div>
 
-<div id="upload-dialog" class="propform popupdialog" title="<roundcube:label name='importmessages' />" aria-hidden="true">
-	<h2 id="aria-label-uploaddialog" class="voice"><roundcube:label name="arialabelmailimportdialog" /></h2>
-	<roundcube:object name="messageimportform" id="uploadform" buttons="no" />
-	<div class="formbuttons">
-		<roundcube:button command="import-messages" type="input" class="button mainaction" label="upload" />
-		<roundcube:button name="close" type="input" class="button" label="cancel" onclick="UI.show_uploadform()" />
-	</div>
-</div>
+<roundcube:object name="messageimportform" id="uploadform" mode="smart" />
 
 <roundcube:include file="/includes/footer.html" />
 

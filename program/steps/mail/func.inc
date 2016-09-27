@@ -141,6 +141,7 @@ $RCMAIL->register_action_map(array(
     'expunge' => 'folders.inc',
     'purge'   => 'folders.inc',
     'remove-attachment'  => 'attachments.inc',
+    'rename-attachment'  => 'attachments.inc',
     'display-attachment' => 'attachments.inc',
     'upload'             => 'attachments.inc',
     'group-expand'       => 'autocomplete.inc',
@@ -769,7 +770,7 @@ function rcmail_get_unseen_count($mbox_name)
  *
  * @param object rcube_message Message
  */
-function rcmail_check_safe(&$message)
+function rcmail_check_safe($message)
 {
     global $RCMAIL;
 
@@ -797,6 +798,8 @@ function rcmail_check_safe(&$message)
             break;
         }
     }
+
+    return !empty($message->is_safe);
 }
 
 /**
@@ -807,7 +810,7 @@ function rcmail_check_safe(&$message)
  * @param array  CID map replaces (inline images)
  * @return string Clean HTML
  */
-function rcmail_wash_html($html, $p, $cid_replaces)
+function rcmail_wash_html($html, $p, $cid_replaces = array())
 {
     global $REMOTE_OBJECTS;
 
@@ -1369,17 +1372,22 @@ function rcmail_message_body($attrib)
 
 function rcmail_part_image_type($part)
 {
-    // Skip TIFF images if browser doesn't support this format...
-    $tiff_support = !empty($_SESSION['browser_caps']) && !empty($_SESSION['browser_caps']['tif']);
-    // until we can convert them to JPEG
-    $tiff_support = $tiff_support || rcube_image::is_convertable('image/tiff');
+    $mimetype = strtolower($part->mimetype);
 
-    // Content-type regexp
-    $mime_regex = $tiff_support ? '/^image\//i' : '/^image\/(?!tif)/i';
+    // Skip TIFF/WEBP images if browser doesn't support this format
+    // ...until we can convert them to JPEG
+    $tiff_support = !empty($_SESSION['browser_caps']) && !empty($_SESSION['browser_caps']['tiff']);
+    $tiff_support = $tiff_support || rcube_image::is_convertable('image/tiff');
+    $webp_support = !empty($_SESSION['browser_caps']) && !empty($_SESSION['browser_caps']['webp']);
+    $webp_support = $webp_support || rcube_image::is_convertable('image/webp');
+
+    if ((!$tiff_support && $mimetype == 'image/tiff') || (!$webp_support && $mimetype == 'image/webp')) {
+        return;
+    }
 
     // Content-Type: image/*...
-    if (preg_match($mime_regex, $part->mimetype)) {
-        return rcmail_fix_mimetype($part->mimetype);
+    if (strpos($mimetype, 'image/') === 0) {
+        return rcmail_fix_mimetype($mimetype);
     }
 
     // Many clients use application/octet-stream, we'll detect mimetype
@@ -1397,9 +1405,12 @@ function rcmail_part_image_type($part)
         $types['tif']  = 'image/tiff';
         $types['tiff'] = 'image/tiff';
     }
+    if ($webp_support) {
+        $types['webp'] = 'image/webp';
+    }
 
     if ($part->filename
-        && preg_match('/^application\/octet-stream$/i', $part->mimetype)
+        && $mimetype == 'application/octet-stream'
         && preg_match('/\.([^.]+)$/i', $part->filename, $m)
         && ($extension = strtolower($m[1]))
         && isset($types[$extension])
@@ -1828,7 +1839,7 @@ function rcmail_send_mdn($message, &$smtp_error)
             'From'       => $sender,
             'To'         => $message->headers->mdn_to,
             'Subject'    => $RCMAIL->gettext('receiptread') . ': ' . $message->subject,
-            'Message-ID' => $RCMAIL->gen_message_id(),
+            'Message-ID' => $RCMAIL->gen_message_id($identity['email']),
             'X-Sender'   => $identity['email'],
             'References' => trim($message->headers->references . ' ' . $message->headers->messageID),
             'In-Reply-To' => $message->headers->messageID,
@@ -2123,46 +2134,18 @@ function rcmail_message_import_form($attrib = array())
 {
     global $RCMAIL;
 
-    // set defaults
-    $attrib += array('id' => 'rcmImportform', 'buttons' => 'yes');
-
-    // Get filesize, enable upload progress bar
-    $max_filesize = $RCMAIL->upload_init();
-
-    $button    = new html_inputfield(array('type' => 'button'));
-    $fileinput = new html_inputfield(array(
-            'type'     => 'file',
-            'name'     => '_file[]',
-            'multiple' => 'multiple',
-            'accept'   => ".eml, .mbox, message/rfc822, text/*",
-    ));
-
-    $content = html::tag('input', array('type' => 'hidden', 'name' => '_unlock', 'value' => ''))
-        . html::tag('input', array('type' => 'hidden', 'name' => '_framed', 'value' => '1'))
-        . html::div(null, $fileinput->show())
-        . html::div('hint', $RCMAIL->gettext(array('name' => 'maxuploadsize', 'vars' => array('size' => $max_filesize))));
-
-    if (rcube_utils::get_boolean($attrib['buttons'])) {
-        $content .= html::div('buttons',
-            $button->show($RCMAIL->gettext('close'), array('class' => 'button', 'onclick' => "$('#$attrib[id]').hide()"))
-            . ' ' .
-            $button->show($RCMAIL->gettext('upload'), array(
-                'class'   => 'button mainaction',
-                'onclick' => rcmail_output::JS_OBJECT_NAME . ".command('import-messages', this.form)"
-            )));
-    }
-
-    $out = $RCMAIL->output->form_tag(array(
-            'id'      => $attrib['id'].'Frm',
-            'method'  => 'post',
-            'enctype' => 'multipart/form-data'
-        ),
-        $content);
-
-    $RCMAIL->output->add_gui_object('importform', $attrib['id'].'Frm');
     $RCMAIL->output->add_label('selectimportfile','importwait');
 
-    return html::div($attrib, $out);
+    $input_attr = array(
+        'multiple' => true,
+        'name'     => '_file[]',
+        'accept'   => ".eml, .mbox, message/rfc822, text/*",
+    );
+
+    $attrib['prefix'] = html::tag('input', array('type' => 'hidden', 'name' => '_unlock', 'value' => ''))
+        . html::tag('input', array('type' => 'hidden', 'name' => '_framed', 'value' => '1'));
+
+    return $RCMAIL->upload_form($attrib, 'importform', 'import-messages', $input_attr);
 }
 
 /**
@@ -2303,4 +2286,39 @@ function rcmail_save_attachment($message, $pid, $compose_id, $params = array())
     }
 
     return false;
+}
+
+// Return mimetypes supported by the browser
+function rcmail_supported_mimetypes()
+{
+    $rcmail = rcube::get_instance();
+
+    // mimetypes supported by the browser (default settings)
+    $mimetypes = (array) $rcmail->config->get('client_mimetypes');
+
+    // Remove unsupported types, which makes that attachment which cannot be
+    // displayed in a browser will be downloaded directly without displaying an overlay page
+    if (empty($_SESSION['browser_caps']['pdf']) && ($key = array_search('application/pdf', $mimetypes)) !== false) {
+        unset($mimetypes[$key]);
+    }
+
+    if (empty($_SESSION['browser_caps']['flash']) && ($key = array_search('application/x-shockwave-flash', $mimetypes)) !== false) {
+        unset($mimetypes[$key]);
+    }
+
+    foreach (array('tiff', 'webp') as $type) {
+        if (empty($_SESSION['browser_caps'][$type]) && ($key = array_search('image/' . $type, $mimetypes)) !== false) {
+            // can we convert it to jpeg?
+            if (!rcube_image::is_convertable('image/' . $type)) {
+                unset($mimetypes[$key]);
+            }
+        }
+    }
+
+    // @TODO: support mail preview for compose attachments
+    if ($rcmail->action != 'compose' && !in_array('message/rfc822', $mimetypes)) {
+        $mimetypes[] = 'message/rfc822';
+    }
+
+    return array_values($mimetypes);
 }

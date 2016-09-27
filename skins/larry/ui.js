@@ -159,14 +159,7 @@ function rcube_mail_ui()
 
         // add menu link for each attachment
         $('#attachment-list > li').each(function() {
-          $(this).append($('<a class="drop" tabindex="0" aria-haspopup="true">Show options</a>')
-              .on('click keypress', function(e) {
-                  if (e.type != 'keypress' || rcube_event.get_keycode(e) == 13) {
-                      attachmentmenu(this, e);
-                      return false;
-                  }
-              })
-          );
+          attachmentmenu_append(this);
         });
 
         if (get_pref('previewheaders') == '1') {
@@ -174,13 +167,14 @@ function rcube_mail_ui()
         }
 
         if (rcmail.env.action == 'show') {
-            $('#messagecontent').focus()
+          $('#messagecontent').focus();
         }
       }
       else if (rcmail.env.action == 'compose') {
         rcmail.addEventListener('aftersend-attachment', show_uploadform)
+          .addEventListener('fileappended', function(e) { if (e.attachment.complete) attachmentmenu_append(e.item); })
           .addEventListener('aftertoggle-editor', function(e) {
-            window.setTimeout(function(){ layout_composeview() }, 200);
+            window.setTimeout(function() { layout_composeview() }, 200);
             if (e && e.mode)
               $("select[name='editorSelector']").val(e.mode);
           })
@@ -226,6 +220,11 @@ function rcube_mail_ui()
 
         new rcube_splitter({ id:'composesplitterv', p1:'#composeview-left', p2:'#composeview-right',
           orientation:'v', relative:true, start:206, min:170, size:12, render:layout_composeview }).init();
+
+        // add menu link for each attachment
+        $('#attachment-list > li').each(function() {
+          attachmentmenu_append(this);
+        });
       }
       else if (rcmail.env.action == 'list' || !rcmail.env.action) {
         var previewframe = $('#mailpreviewframe').is(':visible');
@@ -452,7 +451,6 @@ function rcube_mail_ui()
           dialogClass: 'popupmessage ' + p.type,
           title: env.errortitle,
           close: dialog_close,
-          position: ['center', 'center'],
           hide: {effect: 'fadeOut'},
           width: 420,
           minHeight: 90
@@ -828,12 +826,11 @@ function rcube_mail_ui()
   {
     var id = elem.parentNode.id.replace(/^attach/, '');
 
-    $('#attachmenuopen').off('click').attr('onclick', '').click(function(e) {
-      return rcmail.command('open-attachment', id, this);
-    });
-
-    $('#attachmenudownload').off('click').attr('onclick', '').click(function() {
-      rcmail.command('download-attachment', id, this);
+    $.each(['open', 'download', 'rename'], function() {
+      var action = this;
+      $('#attachmenu' + action).off('click').attr('onclick', '').click(function(e) {
+        return rcmail.command(action + '-attachment', id, this);
+      });
     });
 
     popupconfig.attachmentmenu.link = elem;
@@ -878,6 +875,20 @@ function rcube_mail_ui()
     });
   }
 
+  // append drop-icon to attachments list item (to invoke attachment menu)
+  function attachmentmenu_append(item)
+  {
+    item = $(item);
+
+    if (!item.children('.drop').length)
+      item.append($('<a class="drop skip-content" tabindex="0" aria-haspopup="true">Show options</a>')
+          .on('click keypress', function(e) {
+            if (e.type != 'keypress' || rcube_event.get_keycode(e) == 13) {
+              attachmentmenu(this, e);
+              return false;
+            }
+          }));
+  }
 
   /**
    *
@@ -1319,7 +1330,7 @@ function rcube_splitter(p)
       this.p2.css('top', Math.ceil(this.pos + Math.ceil(this.halfsize) + 2) + 'px');
       this.handle.css('top', Math.round(this.pos - this.halfsize + this.offset)+'px');
       if (bw.ie) {
-        var new_height = parseInt(this.parent.outerHeight(), 10) - parseInt(this.p2.css('top'), 10) - (bw.ie8 ? 2 : 0);
+        var new_height = parseInt(this.parent.outerHeight(), 10) - parseInt(this.p2.css('top'), 10);
         this.p2.css('height', (new_height > 0 ? new_height : 0) + 'px');
       }
     }
@@ -1459,7 +1470,7 @@ function rcube_splitter(p)
   function onResize(e)
   {
     if (me.horizontal) {
-      var new_height = parseInt(me.parent.outerHeight(), 10) - parseInt(me.p2[0].style.top, 10) - (bw.ie8 ? 2 : 0);
+      var new_height = parseInt(me.parent.outerHeight(), 10) - parseInt(me.p2[0].style.top, 10);
       me.p2.css('height', (new_height > 0 ? new_height : 0) +'px');
     }
     else {

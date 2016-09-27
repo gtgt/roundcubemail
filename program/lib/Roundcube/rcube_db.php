@@ -201,7 +201,7 @@ class rcube_db
     /**
      * Connect to appropriate database depending on the operation
      *
-     * @param string $mode Connection mode (r|w)
+     * @param string  $mode  Connection mode (r|w)
      * @param boolean $force Enforce using the given mode
      */
     public function db_connect($mode, $force = false)
@@ -524,7 +524,8 @@ class rcube_db
      * Helper method to handle DB errors.
      * This by default logs the error but could be overriden by a driver implementation
      *
-     * @param string Query that triggered the error
+     * @param string $query Query that triggered the error
+     *
      * @return mixed Result to be stored and returned
      */
     protected function handle_error($query)
@@ -567,7 +568,8 @@ class rcube_db
      * If no query handle is specified, the last query will be taken as reference
      *
      * @param mixed $result Optional query handle
-     * @return mixed   Number of rows or false on failure
+     *
+     * @return mixed Number of rows or false on failure
      * @deprecated This method shows very poor performance and should be avoided.
      */
     public function num_rows($result = null)
@@ -781,6 +783,20 @@ class rcube_db
     public function reset()
     {
         $this->last_result = null;
+    }
+
+    /**
+     * Terminate database connection.
+     */
+    public function closeConnection()
+    {
+        $this->db_connected = false;
+        $this->db_index     = 0;
+
+        // release statement and connection resources
+        $this->last_result  = null;
+        $this->dbh          = null;
+        $this->dbhs         = array();
     }
 
     /**
@@ -1098,8 +1114,8 @@ class rcube_db
     /**
      * Set DSN connection to be used for the given table
      *
-     * @param string Table name
-     * @param string DSN connection ('r' or 'w') to be used
+     * @param string $table Table name
+     * @param string $mode  DSN connection ('r' or 'w') to be used
      */
     public function set_table_dsn($table, $mode)
     {
@@ -1295,7 +1311,7 @@ class rcube_db
     /**
      * Execute the given SQL script
      *
-     * @param string SQL queries to execute
+     * @param string $sql SQL queries to execute
      *
      * @return boolen True on success, False on error
      */

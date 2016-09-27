@@ -575,7 +575,8 @@ class rcube_imap_generic
                     $user  = '';
                 }
 
-                $auth_sasl = Auth_SASL::factory('digestmd5');
+                $auth_sasl = new Auth_SASL;
+                $auth_sasl = $auth_sasl->factory('digestmd5');
                 $reply     = base64_encode($auth_sasl->getResponse($authc, $pass,
                     base64_decode($challenge), $this->host, 'imap', $user));
 
@@ -2059,12 +2060,12 @@ class rcube_imap_generic
                     if (preg_match('/BODY\[HEADER\.FIELDS \("*DATE"*\)\] (.*)/', $line, $matches)) {
                         $value = preg_replace(array('/^"*[a-z]+:/i'), '', $matches[1]);
                         $value = trim($value);
-                        $result[$id] = $this->strToTime($value);
+                        $result[$id] = rcube_utils::strtotime($value);
                     }
                     // non-existent/empty Date: header, use INTERNALDATE
                     if (empty($result[$id])) {
                         if (preg_match('/INTERNALDATE "([^"]+)"/', $line, $matches)) {
-                            $result[$id] = $this->strToTime($matches[1]);
+                            $result[$id] = rcube_utils::strtotime($matches[1]);
                         }
                         else {
                             $result[$id] = 0;
@@ -2099,7 +2100,7 @@ class rcube_imap_generic
                 }
                 else if ($mode == 4) {
                     if (preg_match('/INTERNALDATE "([^"]+)"/', $line, $matches)) {
-                        $result[$id] = $this->strToTime($matches[1]);
+                        $result[$id] = rcube_utils::strtotime($matches[1]);
                     }
                     else {
                         $result[$id] = 0;
@@ -2428,7 +2429,7 @@ class rcube_imap_generic
                     else if ($name == 'INTERNALDATE') {
                         $result[$id]->internaldate = $value;
                         $result[$id]->date         = $value;
-                        $result[$id]->timestamp    = $this->StrToTime($value);
+                        $result[$id]->timestamp    = rcube_utils::strtotime($value);
                     }
                     else if ($name == 'FLAGS') {
                         if (!empty($value)) {
@@ -2493,7 +2494,7 @@ class rcube_imap_generic
                         switch ($field) {
                         case 'date';
                             $result[$id]->date = $string;
-                            $result[$id]->timestamp = $this->strToTime($string);
+                            $result[$id]->timestamp = rcube_utils::strtotime($string);
                             break;
                         case 'to':
                             $result[$id]->to = preg_replace('/undisclosed-recipients:[;,]*/', '', $string);
@@ -2642,7 +2643,7 @@ class rcube_imap_generic
             case 'date':
             case 'internaldate':
             case 'timestamp':
-                $value = self::strToTime($headers->$field);
+                $value = rcube_utils::strtotime($headers->$field);
                 if (!$value && $field != 'timestamp') {
                     $value = $headers->timestamp;
                 }
@@ -3988,44 +3989,6 @@ class rcube_imap_generic
         }
 
         return implode(' ', (array)$flags);
-    }
-
-    /**
-     * Converts datetime string into unix timestamp
-     *
-     * @param string $date Date string
-     *
-     * @return int Unix timestamp
-     */
-    protected static function strToTime($date)
-    {
-        // Clean malformed data
-        $date = preg_replace(
-            array(
-                '/GMT\s*([+-][0-9]+)/',                     // support non-standard "GMTXXXX" literal
-                '/[^a-z0-9\x20\x09:+-]/i',                  // remove any invalid characters
-                '/\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*/i',   // remove weekday names
-            ),
-            array(
-                '\\1',
-                '',
-                '',
-            ), $date);
-
-        $date = trim($date);
-
-        // if date parsing fails, we have a date in non-rfc format
-        // remove token from the end and try again
-        while (($ts = intval(@strtotime($date))) <= 0) {
-            $d = explode(' ', $date);
-            array_pop($d);
-            if (empty($d)) {
-                break;
-            }
-            $date = implode(' ', $d);
-        }
-
-        return $ts < 0 ? 0 : $ts;
     }
 
     /**

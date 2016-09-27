@@ -493,7 +493,7 @@ class rcube_db_oracle extends rcube_db
     /**
      * Execute the given SQL script
      *
-     * @param string SQL queries to execute
+     * @param string $sql SQL queries to execute
      *
      * @return boolen True on success, False on error
      */
@@ -600,5 +600,19 @@ class rcube_db_oracle extends rcube_db
         }
 
         return $this->last_result = $this->dbh->rollBack();
+    }
+
+    /**
+     * Terminate database connection.
+     */
+    public function closeConnection()
+    {
+        // release statement and close connection(s)
+        $this->last_result = null;
+        foreach ($this->dbhs as $dbh) {
+            oci_close($dbh);
+        }
+
+        parent::closeConnection();
     }
 }

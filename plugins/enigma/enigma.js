@@ -23,6 +23,7 @@ window.rcmail && rcmail.addEventListener('init', function(evt) {
             rcmail.register_command('search', function(props) {return rcmail.enigma_search(props); }, true);
             rcmail.register_command('reset-search', function(props) {return rcmail.enigma_search_reset(props); }, true);
             rcmail.register_command('plugin.enigma-import', function() { rcmail.enigma_import(); }, true);
+            rcmail.register_command('plugin.enigma-import-search', function() { rcmail.enigma_import_search(); }, true);
             rcmail.register_command('plugin.enigma-key-export', function() { rcmail.enigma_export(); });
             rcmail.register_command('plugin.enigma-key-export-selected', function() { rcmail.enigma_export(true); });
             rcmail.register_command('plugin.enigma-key-import', function() { rcmail.enigma_key_import(); }, true);
@@ -33,6 +34,19 @@ window.rcmail && rcmail.addEventListener('init', function(evt) {
             rcmail.addEventListener('responseafterplugin.enigmakeys', function() {
                 rcmail.enable_command('plugin.enigma-key-export', rcmail.env.rowcount > 0);
             });
+
+            if (rcmail.gui_objects.importform) {
+                // make sure Enter key in search input starts searching
+                // instead of submitting the form
+                $('#rcmimportsearch').keydown(function(e) {
+                    if (e.which == 13) {
+                        rcmail.enigma_import_search();
+                        return false;
+                    }
+                });
+
+                $('input[type="button"]:first').focus();
+            }
         }
     }
     else if (rcmail.env.task == 'mail') {
@@ -44,6 +58,8 @@ window.rcmail && rcmail.addEventListener('init', function(evt) {
                 // don't close the menu on mouse click inside
                 e.stopPropagation();
             });
+
+            $('a.button.enigma').prop('tabindex', $('#messagetoolbar > a:first').prop('tabindex'));
         }
 
         $.each(['encrypt', 'sign'], function() {
@@ -77,11 +93,14 @@ rcube_webmail.prototype.enigma_key_create = function()
 // Generate key(s) and submit them
 rcube_webmail.prototype.enigma_key_create_save = function()
 {
-    var options, lock,
-        user = $('#key-ident > option').filter(':selected').text(),
+    var options, lock, users = [],
         password = $('#key-pass').val(),
         confirm = $('#key-pass-confirm').val(),
         size = $('#key-size').val();
+
+    $('[name="identity[]"]:checked').each(function() {
+      users.push(this.value);
+    });
 
     // validate the form
     if (!password || !confirm)
@@ -90,8 +109,8 @@ rcube_webmail.prototype.enigma_key_create_save = function()
     if (password != confirm)
         return alert(this.get_label('enigma.passwordsdiffer'));
 
-    if (user.match(/^<[^>]+>$/))
-        return alert(this.get_label('enigma.nonameident'));
+    if (!users.length)
+        return alert(this.get_label('enigma.noidentselected'));
 
     // generate keys
     // use OpenPGP.js if browser supports required features
@@ -99,13 +118,13 @@ rcube_webmail.prototype.enigma_key_create_save = function()
         lock = this.set_busy(true, 'enigma.keygenerating');
         options = {
             numBits: size,
-            userId: user,
+            userId: users,
             passphrase: password
         };
 
         openpgp.generateKeyPair(options).then(function(keypair) {
             // success
-            var post = {_a: 'import', _keys: keypair.privateKeyArmored};
+            var post = {_a: 'import', _keys: keypair.privateKeyArmored, _generated: 1};
 
             // send request to server
             rcmail.http_post('plugin.enigmakeys', post, lock);
@@ -114,12 +133,6 @@ rcube_webmail.prototype.enigma_key_create_save = function()
             rcmail.set_busy(false, null, lock);
             rcmail.display_message(rcmail.get_label('enigma.keygenerateerror'), 'error');
         });
-    }
-    // generate keys on the server
-    else if (rcmail.env.enigma_keygen_server) {
-        lock = this.set_busy(true, 'enigma.keygenerating');
-        options = {_a: 'generate', _user: user, _password: password, _size: size};
-        rcmail.http_post('plugin.enigmakeys', options, lock);
     }
     else {
         rcmail.display_message(rcmail.get_label('enigma.keygennosupport'), 'error');
@@ -150,12 +163,50 @@ rcube_webmail.prototype.enigma_delete = function()
 // Export key(s)
 rcube_webmail.prototype.enigma_export = function(selected)
 {
-    var keys = selected ? this.keys_list.get_selection().join(',') : '*';
+    var priv = false,
+        list = this.keys_list,
+        keys = selected ? list.get_selection().join(',') : '*',
+        args = {_a: 'export', _keys: keys};
 
     if (!keys.length)
         return;
 
-    this.goto_url('plugin.enigmakeys', {_a: 'export', _keys: keys}, false, true);
+    // find out wether selected keys are private
+    if (keys == '*')
+        priv = true;
+    else
+        $.each(list.get_selection(), function() {
+            flags = $(list.rows[this].obj).data('flags');
+            if (flags && flags.indexOf('p') >= 0) {
+                priv = true;
+                return false;
+            }
+        });
+
+    // ask the user about including private key in the export
+    if (priv)
+        return this.show_popup_dialog(
+            this.get_label('enigma.keyexportprompt'),
+            this.get_label('enigma.exportkeys'),
+            [{
+                text: this.get_label('enigma.onlypubkeys'),
+                click: function(e) {
+                    rcmail.goto_url('plugin.enigmakeys', args, false, true);
+                    $(this).remove();
+                }
+            },
+            {
+                text: this.get_label('enigma.withprivkeys'),
+                click: function(e) {
+                    args._priv = 1;
+                    rcmail.goto_url('plugin.enigmakeys', args, false, true);
+                    $(this).remove();
+                }
+            }],
+            {width: 400}
+        );
+
+    this.goto_url('plugin.enigmakeys', args, false, true);
 };
 
 // Submit key(s) import form
@@ -176,6 +227,21 @@ rcube_webmail.prototype.enigma_import = function()
         form.submit();
 
         this.lock_form(form, true);
+   }
+};
+
+// Ssearch for key(s) for import
+rcube_webmail.prototype.enigma_import_search = function()
+{
+    var form, search;
+
+    if (form = this.gui_objects.importform) {
+        search = $('#rcmimportsearch').val();
+        if (!search) {
+            return;
+        }
+
+        this.enigma_find_publickey(search);
    }
 };
 
@@ -213,6 +279,8 @@ rcube_webmail.prototype.enigma_loadframe = function(url)
         if (!url && (win = window.frames[this.env.contentframe])) {
             if (win.location && win.location.href.indexOf(this.env.blankpage) < 0)
                 win.location.href = this.env.blankpage;
+            if (this.env.frame_lock)
+                this.set_busy(false, null, this.env.frame_lock);
             return;
         }
 
@@ -239,7 +307,7 @@ rcube_webmail.prototype.enigma_search = function(props)
     }
 
     return false;
-}
+};
 
 // Reset search filter and the list
 rcube_webmail.prototype.enigma_search_reset = function(props)
@@ -256,11 +324,14 @@ rcube_webmail.prototype.enigma_search_reset = function(props)
     }
 
     return false;
-}
+};
 
 // Keys/certs listing
-rcube_webmail.prototype.enigma_list = function(page)
+rcube_webmail.prototype.enigma_list = function(page, reset_frame)
 {
+    if (this.is_framed())
+        return parent.rcmail.enigma_list(page, reset_frame);
+
     var params = {'_a': 'list'},
       lock = this.set_busy(true, 'loading');
 
@@ -271,9 +342,9 @@ rcube_webmail.prototype.enigma_list = function(page)
     if (page)
         params._p = page;
 
-    this.enigma_clear_list();
+    this.enigma_clear_list(reset_frame);
     this.http_post('plugin.enigmakeys', params, lock);
-}
+};
 
 // Change list page
 rcube_webmail.prototype.enigma_list_page = function(page)
@@ -288,17 +359,19 @@ rcube_webmail.prototype.enigma_list_page = function(page)
         page = 1;
 
     this.enigma_list(page);
-}
+};
 
 // Remove list rows
-rcube_webmail.prototype.enigma_clear_list = function()
+rcube_webmail.prototype.enigma_clear_list = function(reset_frame)
 {
-    this.enigma_loadframe();
+    if (reset_frame !== false)
+        this.enigma_loadframe();
+
     if (this.keys_list)
         this.keys_list.clear(true);
 
     this.enable_command('plugin.enigma-key-delete', 'plugin.enigma-key-delete-selected', false);
-}
+};
 
 // Adds a row to the list
 rcube_webmail.prototype.enigma_add_list_row = function(r)
@@ -318,11 +391,12 @@ rcube_webmail.prototype.enigma_add_list_row = function(r)
 
     row.id = 'rcmrow' + r.id;
     row.className = css_class;
+    if (r.flags) $(row).data('flags', r.flags);
 
     col.innerHTML = r.name;
     row.appendChild(col);
     list.insert_row(row);
-}
+};
 
 
 /*********************************************************/
@@ -334,13 +408,13 @@ rcube_webmail.prototype.enigma_beforesend_handler = function(props)
 {
     this.env.last_action = 'send';
     this.enigma_compose_handler(props);
-}
+};
 
 rcube_webmail.prototype.enigma_beforesavedraft_handler = function(props)
 {
     this.env.last_action = 'savedraft';
     this.enigma_compose_handler(props);
-}
+};
 
 rcube_webmail.prototype.enigma_compose_handler = function(props)
 {
@@ -362,7 +436,7 @@ rcube_webmail.prototype.enigma_compose_handler = function(props)
     if (this.env.last_action == 'savedraft') {
         $('input[name="_enigma_sign"]', form).val(0);
     }
-}
+};
 
 // Import attached keys/certs file
 rcube_webmail.prototype.enigma_import_attachment = function(mime_id)
@@ -373,7 +447,7 @@ rcube_webmail.prototype.enigma_import_attachment = function(mime_id)
     this.http_post('plugin.enigmaimport', post, lock);
 
     return false;
-}
+};
 
 // password request popup
 rcube_webmail.prototype.enigma_password_request = function(data)
@@ -437,7 +511,7 @@ rcube_webmail.prototype.enigma_password_request = function(data)
         // this fixes bug when pressing Enter on "Save" button in the dialog
         parent.rcmail.message_list.blur();
     }
-}
+};
 
 // submit entered password
 rcube_webmail.prototype.enigma_password_submit = function(data)
@@ -466,7 +540,7 @@ rcube_webmail.prototype.enigma_password_submit = function(data)
     }
 
     form.appendTo(document.body).submit();
-}
+};
 
 // submit entered password - in mail compose page
 rcube_webmail.prototype.enigma_password_compose_submit = function(data)
@@ -483,4 +557,39 @@ rcube_webmail.prototype.enigma_password_compose_submit = function(data)
     }
 
     this.submit_messageform(this.env.last_action == 'savedraft');
-}
+};
+
+// Display no-key error with key search button
+rcube_webmail.prototype.enigma_key_not_found = function(data)
+{
+    return this.show_popup_dialog(
+        data.text,
+        data.title,
+        [{
+            text: data.button,
+            click: function(e) {
+                $(this).remove();
+                rcmail.enigma_find_publickey(data.email);
+            }
+        }],
+        {width: 400, dialogClass: 'popupmessage error'}
+    );
+};
+
+// Search for a public key on the key server
+rcube_webmail.prototype.enigma_find_publickey = function(email)
+{
+    this.mailvelope_search_pubkeys([email],
+        function(status) {},
+        function(key) {
+            var lock = rcmail.set_busy(true, 'enigma.importwait'),
+                post = {_a: 'import', _keys: key};
+
+            if (rcmail.env.action == 'plugin.enigmakeys')
+                post._refresh = 1;
+
+            // send request to server
+            rcmail.http_post('plugin.enigmakeys', post, lock);
+        }
+    );
+};

@@ -88,7 +88,7 @@ $OUTPUT->add_label('nosubject', 'nosenderwarning', 'norecipientwarning', 'nosubj
     'selectimportfile', 'messageissent', 'loadingdata', 'nopubkeyfor', 'nopubkeyforsender',
     'encryptnoattachments','encryptedsendialog','searchpubkeyservers', 'importpubkeys',
     'encryptpubkeysfound',  'search', 'close', 'import', 'keyid', 'keylength', 'keyexpired',
-    'keyrevoked', 'keyimportsuccess', 'keyservererror', 'attaching');
+    'keyrevoked', 'keyimportsuccess', 'keyservererror', 'attaching', 'namex', 'attachmentrename');
 
 $OUTPUT->set_pagetitle($RCMAIL->gettext('compose'));
 
@@ -100,6 +100,7 @@ $OUTPUT->set_env('sig_below', $RCMAIL->config->get('sig_below'));
 $OUTPUT->set_env('recipients_separator', trim($RCMAIL->config->get('recipients_separator', ',')));
 $OUTPUT->set_env('save_localstorage', (bool)$RCMAIL->config->get('compose_save_localstorage'));
 $OUTPUT->set_env('is_sent', false);
+$OUTPUT->set_env('mimetypes', rcmail_supported_mimetypes());
 
 $drafts_mbox     = $RCMAIL->config->get('drafts_mbox');
 $config_show_sig = $RCMAIL->config->get('show_sig', 1);
@@ -849,13 +850,15 @@ function rcmail_prepare_message_body()
     unset($plugin);
 
     // add blocked.gif attachment (#1486516)
-    if ($isHtml && preg_match('#<img src="program/resources/blocked\.gif"#', $body)) {
+    $regexp = '# src="program/resources/blocked\.gif"#';
+    if ($isHtml && preg_match($regexp, $body)) {
         $content = $RCMAIL->get_resource_content('blocked.gif');
+
         if ($content && ($attachment = rcmail_save_image('blocked.gif', 'image/gif', $content))) {
             $COMPOSE['attachments'][$attachment['id']] = $attachment;
             $url = sprintf('%s&_id=%s&_action=display-attachment&_file=rcmfile%s',
                 $RCMAIL->comm_path, $COMPOSE['id'], $attachment['id']);
-            $body = preg_replace('#program/resources/blocked\.gif#', $url, $body);
+            $body = preg_replace($regexp, ' src="' . $url . '"', $body);
         }
     }
 
@@ -1549,6 +1552,9 @@ function rcmail_compose_attachment_list($attrib)
     $jslist = array();
     $button = '';
 
+    if ($attrib['icon_pos'] == 'left')
+        $COMPOSE['icon_pos'] = 'left';
+
     if (is_array($COMPOSE['attachments'])) {
         if ($attrib['deleteicon']) {
             $button = html::img(array(
@@ -1565,24 +1571,30 @@ function rcmail_compose_attachment_list($attrib)
                 continue;
             }
 
-            $content = sprintf('%s <span class="attachment-size">(%s)</span>',
+            $link_content = sprintf('%s <span class="attachment-size"> (%s)</span>',
                 rcube::Q($a_prop['name']), $RCMAIL->show_bytes($a_prop['size']));
+
+            $content_link = html::a(array(
+                    'href'    => "#load",
+                    'class'   => 'filename',
+                    'onclick' => sprintf("return %s.command('load-attachment','rcmfile%s', this, event)", rcmail_output::JS_OBJECT_NAME, $id),
+                ), $link_content);
+
+            $delete_link = html::a(array(
+                    'href'    => "#delete",
+                    'title'   => $RCMAIL->gettext('delete'),
+                    'onclick' => sprintf("return %s.command('remove-attachment','rcmfile%s', this, event)", rcmail_output::JS_OBJECT_NAME, $id),
+                    'class'   => 'delete',
+                    'tabindex' => $attrib['tabindex'] ?: '0',
+                    'aria-label'   => $RCMAIL->gettext('delete') . ' ' . $a_prop['name'],
+                ), $button);
 
             $out .= html::tag('li', array(
                     'id'          => 'rcmfile'.$id,
                     'class'       => rcube_utils::file2class($a_prop['mimetype'], $a_prop['name']),
                     'onmouseover' => "rcube_webmail.long_subject_title_ex(this, 0)",
                 ),
-                html::a(array(
-                        'href'    => "#delete",
-                        'title'   => $RCMAIL->gettext('delete'),
-                        'onclick' => sprintf("return %s.command('remove-attachment','rcmfile%s', this)", rcmail_output::JS_OBJECT_NAME, $id),
-                        'class'   => 'delete',
-                        'tabindex' => $attrib['tabindex'] ?: '0',
-                        'aria-label'   => $RCMAIL->gettext('delete') . ' ' . $a_prop['name'],
-                    ),
-                    $button
-                ) . $content
+                $COMPOSE['icon_pos'] == 'left' ? $delete_link.$content_link : $content_link.$delete_link
             );
 
             $jslist['rcmfile'.$id] = array(
@@ -1617,50 +1629,10 @@ function rcmail_compose_attachment_list($attrib)
 
 function rcmail_compose_attachment_form($attrib)
 {
-    global $OUTPUT, $RCMAIL;
+    global $RCMAIL;
 
-    // set defaults
-    $attrib += array('id' => 'rcmUploadbox', 'buttons' => 'yes');
-
-    // Get filesize, enable upload progress bar
-    $max_filesize = $RCMAIL->upload_init();
-
-    $button  = new html_inputfield(array('type' => 'button'));
-    $content = html::div(null, rcmail_compose_attachment_field())
-        . html::div('hint', $RCMAIL->gettext(array('name' => 'maxuploadsize', 'vars' => array('size' => $max_filesize))));
-
-    if (rcube_utils::get_boolean($attrib['buttons'])) {
-        $content .= html::div('buttons',
-            $button->show($RCMAIL->gettext('close'), array('class' => 'button', 'onclick' => "$('#$attrib[id]').hide()")) . ' ' .
-            $button->show($RCMAIL->gettext('upload'), array('class' => 'button mainaction', 'onclick' => rcmail_output::JS_OBJECT_NAME . ".command('send-attachment', this.form)"))
-        );
-    }
-
-    $out = html::div($attrib, $OUTPUT->form_tag(array(
-            'id'      => $attrib['id'] . 'Frm',
-            'name'    => 'uploadform',
-            'method'  => 'post',
-            'enctype' => 'multipart/form-data'
-        ), $content
-    ));
-
-    $OUTPUT->add_gui_object('uploadform', $attrib['id'] . 'Frm');
-
-    return $out;
+    return $RCMAIL->upload_form($attrib, 'uploadform', 'send-attachment', array('multiple' => true));
 }
-
-
-function rcmail_compose_attachment_field($attrib = array())
-{
-    $attrib['type']     = 'file';
-    $attrib['name']     = '_attachments[]';
-    $attrib['multiple'] = 'multiple';
-
-    $field = new html_inputfield($attrib);
-
-    return $field->show();
-}
-
 
 function rcmail_priority_selector($attrib)
 {
