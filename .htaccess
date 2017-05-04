@@ -57,13 +57,8 @@ RewriteRule ^/?(\.git|\.tx|SQL|bin|config|logs|temp|tests|program\/(include|lib|
 # - deny access to composer binaries
 RewriteRule ^/vendor\/bin\/.* - [F]
 # - deny access to some documentation files
-<<<<<<< HEAD
-RewriteRule /?(README\.md|composer\.json-dist|composer\.json|package\.xml)$ - [F]
-#</IfModule>
-=======
 RewriteRule /?(README\.md|composer\.json-dist|composer\.json|package\.xml|jsdeps.json|Dockerfile)$ - [F]
 </IfModule>
->>>>>>> remotes/upstream/master
 
 <IfModule mod_deflate.c>
 SetOutputFilter DEFLATE
