@@ -62,7 +62,8 @@ class markasjunk extends rcube_plugin
 
         $rcmail  = rcmail::get_instance();
         $storage = $rcmail->get_storage();
-
+        $junk_mbox = $rcmail->config->get('junk_mbox');
+        
         foreach (rcmail::get_uids() as $mbox => $uids) {
             $storage->unset_flag($uids, 'NONJUNK', $mbox);
             $storage->set_flag($uids, 'JUNK', $mbox);
@@ -89,7 +90,7 @@ class markasjunk extends rcube_plugin
             }
         }
 
-        if (($junk_mbox = $rcmail->config->get('junk_mbox'))) {
+        if ($junk_mbox) {
             $rcmail->output->command('move_messages', $junk_mbox);
         }
 
