@@ -153,6 +153,10 @@ $labels['markunread']       = 'As unread';
 $labels['markflagged']      = 'As flagged';
 $labels['markunflagged']    = 'As unflagged';
 $labels['moreactions']      = 'More actions...';
+$labels['markallread']      = 'Mark all as read';
+$labels['folders-cur']      = 'Selected folder only';
+$labels['folders-sub']      = 'Selected folder and its subfolders';
+$labels['folders-all']      = 'All folders';
 $labels['more']             = 'More';
 $labels['back']             = 'Back';
 $labels['options']          = 'Options';
@@ -199,6 +203,10 @@ $labels['listcolumns'] = 'List columns';
 $labels['listsorting'] = 'Sorting column';
 $labels['listorder'] = 'Sorting order';
 $labels['listmode'] = 'List view mode';
+$labels['layout'] = 'Layout';
+$labels['layoutwidescreen'] = 'Widescreen';
+$labels['layoutdesktop'] = 'Desktop';
+$labels['layoutlist'] = 'List';
 
 $labels['folderactions'] = 'Folder actions...';
 $labels['compact'] = 'Compact';
@@ -262,6 +270,7 @@ $labels['keyid']          = 'Key ID';
 $labels['keylength']      = 'Bits';
 $labels['keyexpired']     = 'Expired';
 $labels['keyrevoked']     = 'Revoked';
+$labels['bccinstead']     = 'Use Bcc';
 
 $labels['editidents']    = 'Edit identities';
 $labels['spellcheck']    = 'Spell';
@@ -360,6 +369,7 @@ $labels['advsearch'] = 'Advanced Search';
 $labels['advanced'] = 'Advanced';
 $labels['other'] = 'Other';
 $labels['printcontact'] = 'Print contact';
+$labels['qrcode'] = 'QR Code';
 
 $labels['typehome']   = 'Home';
 $labels['typework']   = 'Work';

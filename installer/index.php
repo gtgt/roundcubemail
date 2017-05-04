@@ -55,8 +55,6 @@ if (@file_exists(INSTALL_PATH . 'vendor/autoload.php')) {
 }
 
 require_once 'Roundcube/bootstrap.php';
-// deprecated aliases (to be removed)
-require_once 'bc.php';
 
 if (function_exists('session_start'))
   session_start();
@@ -122,7 +120,7 @@ if ($RCI->configured && empty($_REQUEST['_step'])) {
 </div>
 
 <div id="topnav">
-  <a href="http://trac.roundcube.net/wiki/Howto_Install">How-to Wiki</a>
+  <a href="https://github.com/roundcube/roundcubemail/wiki/Installation">How-to Wiki</a>
 </div>
 
 <div id="content">

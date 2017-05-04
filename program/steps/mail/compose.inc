@@ -88,7 +88,8 @@ $OUTPUT->add_label('nosubject', 'nosenderwarning', 'norecipientwarning', 'nosubj
     'selectimportfile', 'messageissent', 'loadingdata', 'nopubkeyfor', 'nopubkeyforsender',
     'encryptnoattachments','encryptedsendialog','searchpubkeyservers', 'importpubkeys',
     'encryptpubkeysfound',  'search', 'close', 'import', 'keyid', 'keylength', 'keyexpired',
-    'keyrevoked', 'keyimportsuccess', 'keyservererror', 'attaching', 'namex', 'attachmentrename');
+    'keyrevoked', 'keyimportsuccess', 'keyservererror', 'attaching', 'namex', 'attachmentrename',
+    'disclosedrecipwarning', 'disclosedreciptitle', 'bccinstead', 'nosubjecttitle');
 
 $OUTPUT->set_pagetitle($RCMAIL->gettext('compose'));
 
@@ -99,6 +100,7 @@ $OUTPUT->set_env('top_posting', intval($RCMAIL->config->get('reply_mode')) > 0);
 $OUTPUT->set_env('sig_below', $RCMAIL->config->get('sig_below'));
 $OUTPUT->set_env('recipients_separator', trim($RCMAIL->config->get('recipients_separator', ',')));
 $OUTPUT->set_env('save_localstorage', (bool)$RCMAIL->config->get('compose_save_localstorage'));
+$OUTPUT->set_env('max_disclosed_recipients', (int) $RCMAIL->config->get('max_disclosed_recipients', 5));
 $OUTPUT->set_env('is_sent', false);
 $OUTPUT->set_env('mimetypes', rcmail_supported_mimetypes());
 
@@ -908,7 +910,7 @@ function rcmail_compose_part_body($part, $isHtml = false)
             }
 
             // add HTML formatting
-            $body = rcmail_plain_body($body, $part->ctype_parameters['format'] == 'flowed');
+            $body = rcmail_plain_body($body, $part->ctype_parameters['format'] == 'flowed', $part->ctype_parameters['delsp'] == 'yes');
         }
     }
     else {
@@ -925,7 +927,7 @@ function rcmail_compose_part_body($part, $isHtml = false)
         }
         else {
             if ($part->ctype_secondary == 'plain' && $part->ctype_parameters['format'] == 'flowed') {
-                $body = rcube_mime::unfold_flowed($body);
+                $body = rcube_mime::unfold_flowed($body, null, $part->ctype_parameters['delsp'] == 'yes');
             }
 
             // try to remove the signature
@@ -947,46 +949,24 @@ function rcmail_compose_body($attrib)
     list($form_start, $form_end) = get_form_tags($attrib);
     unset($attrib['form']);
 
-    if (empty($attrib['id']))
+    if (empty($attrib['id'])) {
         $attrib['id'] = 'rcmComposeBody';
+    }
+
+    // If desired, set this textarea to be editable by TinyMCE
+    if ($HTML_MODE) {
+        $attrib['class'] = 'mce_editor';
+    }
 
     $attrib['name'] = '_message';
 
-    $isHtml = $HTML_MODE;
+    $textarea = new html_textarea($attrib);
+    $hidden   = new html_hiddenfield();
 
-    $out = $form_start ? "$form_start\n" : '';
-
-    $saveid = new html_hiddenfield(array('name' => '_draft_saveid', 'value' => $RCMAIL->output->get_env('draft_id')));
-    $out .= $saveid->show();
-
-    $drafttoggle = new html_hiddenfield(array('name' => '_draft', 'value' => 'yes'));
-    $out .= $drafttoggle->show();
-
-    $msgtype = new html_hiddenfield(array('name' => '_is_html', 'value' => ($isHtml ? "1" : "0")));
-    $out .= $msgtype->show();
-
-    $framed = new html_hiddenfield(array('name' => '_framed', 'value' => '1'));
-    $out .= $framed->show();
-
-    // If desired, set this textarea to be editable by TinyMCE
-    if ($isHtml) {
-        $MESSAGE_BODY = htmlentities($MESSAGE_BODY, ENT_NOQUOTES, RCUBE_CHARSET);
-        $attrib['class'] = 'mce_editor';
-        $attrib['is_escaped'] = true;
-        $textarea = new html_textarea($attrib);
-        $out .= $textarea->show($MESSAGE_BODY);
-    }
-    else {
-        $textarea = new html_textarea($attrib);
-        $out .= $textarea->show('');
-
-        // quote plain text, inject into textarea
-        $table = get_html_translation_table(HTML_SPECIALCHARS);
-        $MESSAGE_BODY = strtr($MESSAGE_BODY, $table);
-        $out = substr($out, 0, -11) . $MESSAGE_BODY . '</textarea>';
-    }
-
-    $out .= $form_end ? "\n$form_end" : '';
+    $hidden->add(array('name' => '_draft_saveid', 'value' => $RCMAIL->output->get_env('draft_id')));
+    $hidden->add(array('name' => '_draft', 'value' => ''));
+    $hidden->add(array('name' => '_is_html', 'value' => $HTML_MODE ? "1" : "0"));
+    $hidden->add(array('name' => '_framed', 'value' => '1'));
 
     $OUTPUT->set_env('composebody', $attrib['id']);
 
@@ -1008,9 +988,6 @@ function rcmail_compose_body($attrib)
         if (!$spellcheck_langs[$lang]) {
             $lang = 'en';
         }
-
-        $OUTPUT->set_env('spell_langs', $spellcheck_langs);
-        $OUTPUT->set_env('spell_lang', $lang);
 
         $editor_lang_set = array();
         foreach ($spellcheck_langs as $key => $name) {
@@ -1046,11 +1023,15 @@ function rcmail_compose_body($attrib)
 
         $OUTPUT->add_label('checking');
         $OUTPUT->set_env('spellcheck_langs', join(',', $editor_lang_set));
+        $OUTPUT->set_env('spell_langs', $spellcheck_langs);
+        $OUTPUT->set_env('spell_lang', $lang);
     }
 
-    $out .= "\n".'<iframe name="savetarget" src="program/resources/blank.gif" style="width:0;height:0;border:none;visibility:hidden;" aria-hidden="true"></iframe>';
-
-    return $out;
+    return ($form_start ? "$form_start\n" : '')
+        . "\n" . $hidden->show() . "\n" . $textarea->show($MESSAGE_BODY)
+        . ($form_end ? "\n$form_end\n" : '')
+        . '<iframe name="savetarget" src="program/resources/blank.gif"'
+        . ' style="width:0;height:0;border:none;visibility:hidden;" aria-hidden="true"></iframe>';
 }
 
 
@@ -1058,7 +1039,7 @@ function rcmail_create_reply_body($body, $bodyIsHtml)
 {
     global $RCMAIL, $MESSAGE, $LINE_LENGTH;
 
-    $prefix = rcmail_get_reply_header($MESSAGE);
+    $prefix     = rcmail_get_reply_header($MESSAGE);
     $reply_mode = intval($RCMAIL->config->get('reply_mode'));
 
     if (!$bodyIsHtml) {
@@ -1180,7 +1161,7 @@ function rcmail_create_draft_body($body, $bodyIsHtml)
     global $MESSAGE, $COMPOSE;
 
     // add attachments
-    // sizeof($MESSAGE->mime_parts can be 1 - e.g. attachment, but no text!
+    // count($MESSAGE->mime_parts) can be 1 - e.g. attachment, but no text!
     if (empty($COMPOSE['forward_attachments'])
         && is_array($MESSAGE->mime_parts)
         && count($MESSAGE->mime_parts) > 0

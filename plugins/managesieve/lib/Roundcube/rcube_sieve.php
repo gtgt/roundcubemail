@@ -1,7 +1,7 @@
 <?php
 
 /**
- *  Classes for managesieve operations (using PEAR::Net_Sieve)
+ * Classes for managesieve operations (using PEAR::Net_Sieve)
  *
  * Copyright (C) 2008-2011, The Roundcube Dev Team
  * Copyright (C) 2011, Kolab Systems AG
@@ -26,6 +26,7 @@ class rcube_sieve
 {
     private $sieve;                 // Net_Sieve object
     private $error = false;         // error flag
+    private $errorLines = array();  // array of line numbers within sieve script which raised an error
     private $list = array();        // scripts list
 
     public $script;                 // rcube_sieve_script object
@@ -102,7 +103,8 @@ class rcube_sieve
         }
     }
 
-    public function __destruct() {
+    public function __destruct()
+    {
         $this->sieve->disconnect();
     }
 
@@ -161,10 +163,37 @@ class rcube_sieve
         $result = $this->sieve->installScript($name, $content);
 
         if (is_a($result, 'PEAR_Error')) {
+            $rawErrorMessage = $result->getMessage();
+            $errMessages = preg_split("/$name:/", $rawErrorMessage);
+
+            if (count($errMessages) > 0) {
+                foreach ($errMessages as $singleError) {
+                    $matches = array();
+                    $res = preg_match('/line (\d+):(.*)/i', $singleError, $matches);
+
+                    if ($res === 1 ) {
+                        if (count($matches) > 2) {
+                            $this->errorLines[] = array("line" => $matches[1], "msg" => $matches[2]);
+                        }
+                        else {
+                            $this->errorLines[] = array("line" => $matches[1], "msg" => null);
+                        }
+                    }
+                }
+            }
+
             return $this->_set_error(self::ERROR_INSTALL);
         }
 
         return true;
+    }
+
+    /**
+     * Returns the current error line within the saved sieve script
+     */
+    public function get_error_lines()
+    {
+        return $this->errorLines;
     }
 
     /**

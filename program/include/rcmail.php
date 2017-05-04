@@ -380,7 +380,7 @@ class rcmail extends rcube
         if (!$user_only) {
             foreach ($this->config->get('compose_responses_static', array()) as $response) {
                 if (empty($response['key'])) {
-                    $response['key']    = substr(md5($response['name']), 0, 16);
+                    $response['key'] = substr(md5($response['name']), 0, 16);
                 }
 
                 $response['static'] = true;
@@ -405,7 +405,15 @@ class rcmail extends rcube
             ksort($responses, SORT_LOCALE_STRING);
         }
 
-        return array_values($responses);
+        $responses = array_values($responses);
+
+        $hook = $this->plugins->exec_hook('get_compose_responses', array(
+            'list'      => $responses,
+            'sorted'    => $sorted,
+            'user_only' => $user_only,
+        ));
+
+        return $hook['list'];
     }
 
     /**
@@ -447,7 +455,7 @@ class rcmail extends rcube
 
         // add some basic labels to client
         $this->output->add_label('loading', 'servererror', 'connerror', 'requesttimedout',
-            'refreshing', 'windowopenerror', 'uploadingmany');
+            'refreshing', 'windowopenerror', 'uploadingmany', 'close');
 
         return $this->output;
     }
@@ -485,7 +493,7 @@ class rcmail extends rcube
     }
 
     /**
-     * Perfom login to the mail server and to the webmail service.
+     * Perform login to the mail server and to the webmail service.
      * This will also create a new user entry if auto_create_user is configured.
      *
      * @param string $username    Mail storage (IMAP) user name
@@ -529,8 +537,8 @@ class rcmail extends rcube
         // we'll only handle unset host (if possible)
         if (!$host && !empty($default_host)) {
             if (is_array($default_host)) {
-                list($key, $val) = each($default_host);
-                $host = is_numeric($key) ? $val : $key;
+                $key  = key($default_host);
+                $host = is_numeric($key) ? $default_host[$key] : $key;
             }
             else {
                 $host = $default_host;
@@ -741,8 +749,8 @@ class rcmail extends rcube
 
             // take the first entry if $host is still not set
             if (empty($host)) {
-                list($key, $val) = each($default_host);
-                $host = is_numeric($key) ? $val : $key;
+                $key  = key($default_host);
+                $host = is_numeric($key) ? $default_host[$key] : $key;
             }
         }
         else if (empty($default_host)) {
@@ -1186,7 +1194,7 @@ class rcmail extends rcube
      *
      * @param mixed  $date    Date representation (string, timestamp or DateTime object)
      * @param string $format  Date format to use
-     * @param bool   $convert Enables date convertion according to user timezone
+     * @param bool   $convert Enables date conversion according to user timezone
      *
      * @return string Formatted date string
      */
@@ -1322,12 +1330,6 @@ class rcmail extends rcube
 
         $attrib += array('maxlength' => 100, 'realnames' => false, 'unreadwrap' => ' (%s)');
 
-        $rcmail  = rcmail::get_instance();
-        $storage = $rcmail->get_storage();
-
-        // add some labels to client
-        $rcmail->output->add_label('purgefolderconfirm', 'deletemessagesconfirm');
-
         $type = $attrib['type'] ? $attrib['type'] : 'ul';
         unset($attrib['type']);
 
@@ -1340,6 +1342,7 @@ class rcmail extends rcube
         }
 
         // get current folder
+        $storage   = $this->get_storage();
         $mbox_name = $storage->get_folder();
 
         // build the folders tree
@@ -1351,12 +1354,12 @@ class rcmail extends rcube
             $a_mailboxes = array();
 
             foreach ($a_folders as $folder) {
-                $rcmail->build_folder_tree($a_mailboxes, $folder, $delimiter);
+                $this->build_folder_tree($a_mailboxes, $folder, $delimiter);
             }
         }
 
         // allow plugins to alter the folder tree or to localize folder names
-        $hook = $rcmail->plugins->exec_hook('render_mailboxlist', array(
+        $hook = $this->plugins->exec_hook('render_mailboxlist', array(
             'list'      => $a_mailboxes,
             'delimiter' => $delimiter,
             'type'      => $type,
@@ -1372,31 +1375,34 @@ class rcmail extends rcube
 
             // add no-selection option
             if ($attrib['noselection']) {
-                $select->add(html::quote($rcmail->gettext($attrib['noselection'])), '');
+                $select->add(html::quote($this->gettext($attrib['noselection'])), '');
             }
 
-            $rcmail->render_folder_tree_select($a_mailboxes, $mbox_name, $attrib['maxlength'], $select, $attrib['realnames']);
+            $this->render_folder_tree_select($a_mailboxes, $mbox_name, $attrib['maxlength'], $select, $attrib['realnames']);
             $out = $select->show($attrib['default']);
         }
         else {
             $js_mailboxlist = array();
-            $tree = $rcmail->render_folder_tree_html($a_mailboxes, $mbox_name, $js_mailboxlist, $attrib);
+            $tree = $this->render_folder_tree_html($a_mailboxes, $mbox_name, $js_mailboxlist, $attrib);
 
             if ($type != 'js') {
                 $out = html::tag('ul', $attrib, $tree, html::$common_attrib);
 
-                $rcmail->output->include_script('treelist.js');
-                $rcmail->output->add_gui_object('mailboxlist', $attrib['id']);
-                $rcmail->output->set_env('unreadwrap', $attrib['unreadwrap']);
-                $rcmail->output->set_env('collapsed_folders', (string)$rcmail->config->get('collapsed_folders'));
+                $this->output->include_script('treelist.js');
+                $this->output->add_gui_object('mailboxlist', $attrib['id']);
+                $this->output->set_env('unreadwrap', $attrib['unreadwrap']);
+                $this->output->set_env('collapsed_folders', (string) $this->config->get('collapsed_folders'));
             }
 
-            $rcmail->output->set_env('mailboxes', $js_mailboxlist);
+            $this->output->set_env('mailboxes', $js_mailboxlist);
 
             // we can't use object keys in javascript because they are unordered
             // we need sorted folders list for folder-selector widget
-            $rcmail->output->set_env('mailboxes_list', array_keys($js_mailboxlist));
+            $this->output->set_env('mailboxes_list', array_keys($js_mailboxlist));
         }
+
+        // add some labels to client
+        $this->output->add_label('purgefolderconfirm', 'deletemessagesconfirm');
 
         return $out;
     }
@@ -1683,12 +1689,13 @@ class rcmail extends rcube
      * Try to localize the given IMAP folder name.
      * UTF-7 decode it in case no localized text was found
      *
-     * @param string $name      Folder name
-     * @param bool   $with_path Enable path localization
+     * @param string $name        Folder name
+     * @param bool   $with_path   Enable path localization
+     * @param bool   $path_remove Remove the path
      *
      * @return string Localized folder name in UTF-8 encoding
      */
-    public function localize_foldername($name, $with_path = false)
+    public function localize_foldername($name, $with_path = false, $path_remove = false)
     {
         $realnames = $this->config->get('show_real_foldernames');
 
@@ -1696,12 +1703,20 @@ class rcmail extends rcube
             return $this->gettext($folder_class);
         }
 
+        $storage   = $this->get_storage();
+        $delimiter = $storage->get_hierarchy_delimiter();
+
+        // Remove the path
+        if ($path_remove) {
+            if (strpos($name, $delimiter)) {
+                $path = explode($delimiter, $name);
+                $name = array_pop($path);
+            }
+        }
         // try to localize path of the folder
-        if ($with_path && !$realnames) {
-            $storage   = $this->get_storage();
-            $delimiter = $storage->get_hierarchy_delimiter();
-            $path      = explode($delimiter, $name);
-            $count     = count($path);
+        else if ($with_path && !$realnames) {
+            $path  = explode($delimiter, $name);
+            $count = count($path);
 
             if ($count > 1) {
                 for ($i = 1; $i < $count; $i++) {
@@ -1977,7 +1992,7 @@ class rcmail extends rcube
 
         $this->output->add_label('selectimage', 'addimage', 'selectmedia', 'addmedia');
         $this->output->set_env('editor_config', $config);
-        $this->output->include_css('program/js/tinymce/roundcube/browser.css');
+        $this->output->include_css('program/resources/tinymce/browser.css');
         $this->output->include_script('tinymce/tinymce.min.js');
         $this->output->include_script('editor.js');
     }
@@ -2061,6 +2076,8 @@ class rcmail extends rcube
      * Initializes file uploading interface.
      *
      * @param int $max_size Optional maximum file size in bytes
+     *
+     * @return string Human-readable file size limit
      */
     public function upload_init($max_size = null)
     {
@@ -2083,23 +2100,23 @@ class rcmail extends rcube
         }
 
         // find max filesize value
-        $max_filesize = parse_bytes(ini_get('upload_max_filesize'));
-        $max_postsize = parse_bytes(ini_get('post_max_size'));
-
-        if ($max_postsize && $max_postsize < $max_filesize) {
-            $max_filesize = $max_postsize;
-        }
-
+        $max_filesize = rcube_utils::max_upload_size();
         if ($max_size && $max_size < $max_filesize) {
             $max_filesize = $max_size;
         }
 
+        $max_filesize_txt = $this->show_bytes($max_filesize);
         $this->output->set_env('max_filesize', $max_filesize);
-        $max_filesize = $this->show_bytes($max_filesize);
         $this->output->set_env('filesizeerror', $this->gettext(array(
-            'name' => 'filesizeerror', 'vars' => array('size' => $max_filesize))));
+            'name' => 'filesizeerror', 'vars' => array('size' => $max_filesize_txt))));
 
-        return $max_filesize;
+        if ($max_filecount = ini_get('max_file_uploads')) {
+            $this->output->set_env('max_filecount', $max_filecount);
+            $this->output->set_env('filecounterror', $this->gettext(array(
+                'name' => 'filecounterror', 'vars' => array('count' => $max_filecount))));
+        }
+
+        return $max_filesize_txt;
     }
 
     /**

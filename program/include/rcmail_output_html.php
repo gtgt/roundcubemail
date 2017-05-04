@@ -31,6 +31,7 @@ class rcmail_output_html extends rcmail_output
 
     protected $message;
     protected $template_name;
+    protected $objects      = array();
     protected $js_env       = array();
     protected $js_labels    = array();
     protected $js_commands  = array();
@@ -70,6 +71,7 @@ class rcmail_output_html extends rcmail_output
         $this->set_env('x_frame_options', $this->config->get('x_frame_options', 'sameorigin'));
         $this->set_env('standard_windows', (bool) $this->config->get('standard_windows'));
         $this->set_env('locale', $_SESSION['language']);
+        $this->set_env('devel_mode', $this->devel_mode);
 
         // add cookie info
         $this->set_env('cookie_domain', ini_get('session.cookie_domain'));
@@ -275,7 +277,7 @@ EOF;
     {
         $this->skin_paths[] = $skin_path;
 
-        // read meta file and check for dependecies
+        // read meta file and check for dependencies
         $meta = @file_get_contents(RCUBE_INSTALL_PATH . $skin_path . '/meta.json');
         $meta = @json_decode($meta, true);
 
@@ -527,8 +529,10 @@ EOF;
 
         // allow (legal) iframe content to be loaded
         $iframe = $this->framed || $this->env['framed'];
-        if (!headers_sent() && $iframe && $this->app->config->get('x_frame_options', 'sameorigin') === 'deny') {
-            header('X-Frame-Options: sameorigin', true);
+        if (!headers_sent() && $iframe && ($xopt = $this->app->config->get('x_frame_options', 'sameorigin'))) {
+            if (strtolower($xopt) != 'sameorigin') {
+                header('X-Frame-Options: sameorigin', true);
+            }
         }
 
         // call super method
@@ -637,15 +641,11 @@ EOF;
         $output = $hook['content'];
         unset($hook['content']);
 
-        // make sure all <form> tags have a valid request token
-        $output       = preg_replace_callback('/<form\s+([^>]+)>/Ui', array($this, 'alter_form_tag'), $output);
-        $this->footer = preg_replace_callback('/<form\s+([^>]+)>/Ui', array($this, 'alter_form_tag'), $this->footer);
-
         // remove plugin skin paths from current context
         $this->skin_paths = array_slice($this->skin_paths, count($plugin_skin_paths));
 
         if (!$write) {
-            return $output;
+            return $this->postrender($output);
         }
 
         $this->write(trim($output));
@@ -689,7 +689,7 @@ EOF;
             $parent = $this->framed || preg_match('/^parent\./', $method);
 
             foreach ($args as $i => $arg) {
-                $args[$i] = self::json_serialize($arg);
+                $args[$i] = self::json_serialize($arg, $this->devel_mode);
             }
 
             if ($parent) {
@@ -788,7 +788,7 @@ EOF;
     }
 
     /**
-     * Callback funtion for preg_replace_callback() in parse_with_globals()
+     * Callback function for preg_replace_callback() in parse_with_globals()
      */
     protected function globals_callback($matches)
     {
@@ -887,6 +887,7 @@ EOF;
     {
         $input = $this->parse_conditions($input);
         $input = $this->parse_xml($input);
+        $input = $this->postrender($input);
 
         return $input;
     }
@@ -969,7 +970,7 @@ EOF;
      *
      * @return mixed Expression result
      */
-    protected function eval_expression ($expression)
+    protected function eval_expression($expression)
     {
         $expression = preg_replace(
             array(
@@ -983,27 +984,19 @@ EOF;
             ),
             array(
                 "\$_SESSION['\\1']",
-                "\$app->config->get('\\1',rcube_utils::get_boolean('\\3'))",
-                "\$env['\\1']",
+                "\$this->app->config->get('\\1',rcube_utils::get_boolean('\\3'))",
+                "\$this->env['\\1']",
                 "rcube_utils::get_input_value('\\1', rcube_utils::INPUT_GPC)",
                 "\$_COOKIE['\\1']",
-                "\$browser->{'\\1'}",
-                "'" . $this->template_name . "'",
+                "\$this->browser->{'\\1'}",
+                "'{$this->template_name}'",
             ),
             $expression
         );
 
-        $fn = create_function('$app,$browser,$env', "return ($expression);");
-        if (!$fn) {
-            rcube::raise_error(array(
-                    'code' => 505, 'file' => __FILE__, 'line' => __LINE__,
-                    'message' => "Expression parse error on: ($expression)"
-                ), true, false);
-
-            return;
-        }
-
-        return $fn($this->app, $this->browser, $this->env);
+        // Note: We used create_function() before but it's deprecated in PHP 7.2
+        //       and really it was just a wrapper on eval().
+        return eval("return ($expression);");
     }
 
     /**
@@ -1095,6 +1088,10 @@ EOF;
                 }
                 break;
 
+            case 'add_label':
+                $this->add_label($attrib['name']);
+                break;
+
             // include a file
             case 'include':
                 $old_base_path = $this->base_path;
@@ -1136,14 +1133,15 @@ EOF;
 
             // return code for a specific application object
             case 'object':
-                $object = strtolower($attrib['name']);
+                $object  = strtolower($attrib['name']);
                 $content = '';
 
                 // we are calling a class/method
                 if (($handler = $this->object_handlers[$object]) && is_array($handler)) {
                     if ((is_object($handler[0]) && method_exists($handler[0], $handler[1])) ||
                     (is_string($handler[0]) && class_exists($handler[0])))
-                    $content = call_user_func($handler, $attrib);
+                    $content  = call_user_func($handler, $attrib);
+                    $external = true;
                 }
                 // execute object handler function
                 else if (function_exists($handler)) {
@@ -1206,6 +1204,13 @@ EOF;
 
                 // exec plugin hooks for this template object
                 $hook = $this->app->plugins->exec_hook("template_object_$object", $attrib + array('content' => $content));
+
+                if (strlen($hook['content']) && !empty($external)) {
+                    $object_id                 = uniqid('TEMPLOBJECT:', true);
+                    $this->objects[$object_id] = $hook['content'];
+                    $hook['content']           = $object_id;
+                }
+
                 return $hook['content'];
 
             // return code for a specified eval expression
@@ -1269,6 +1274,25 @@ EOF;
         ob_end_clean();
 
         return $out;
+    }
+
+    /**
+     * Put objects' content back into template output
+     */
+    protected function postrender($output)
+    {
+        // insert objects' contents
+        foreach ($this->objects as $key => $val) {
+            $output = str_replace($key, $val, $output, $count);
+            if ($count) {
+                $this->objects[$key] = null;
+            }
+        }
+
+        // make sure all <form> tags have a valid request token
+        $output = preg_replace_callback('/<form\s+([^>]+)>/Ui', array($this, 'alter_form_tag'), $output);
+
+        return $output;
     }
 
     /**
@@ -1535,7 +1559,7 @@ EOF;
      * @param string $templ     HTML template
      * @param string $base_path Base for absolute paths
      */
-    public function _write($templ = '', $base_path = '')
+    protected function _write($templ = '', $base_path = '')
     {
         $output = trim($templ);
 
@@ -1658,6 +1682,8 @@ EOF;
         if ($this->assets_path) {
             $output = $this->fix_assets_paths($output);
         }
+
+        $output = $this->postrender($output);
 
         // trigger hook with final HTML content to be sent
         $hook = $this->app->plugins->exec_hook("send_page", array('content' => $output));
@@ -1922,7 +1948,7 @@ EOF;
             return;
         }
 
-        $this->add_script('var images = ' . self::json_serialize($images) .';
+        $this->add_script('var images = ' . self::json_serialize($images, $this->devel_mode) .';
             for (var i=0; i<images.length; i++) {
                 img = new Image();
                 img.src = images[i];

@@ -23,6 +23,7 @@ class enigma_driver_gnupg extends enigma_driver
     protected $gpg;
     protected $homedir;
     protected $user;
+    protected $last_sig_algorithm;
 
 
     function __construct($user)
@@ -43,6 +44,7 @@ class enigma_driver_gnupg extends enigma_driver
         $debug   = $this->rc->config->get('enigma_debug');
         $binary  = $this->rc->config->get('enigma_pgp_binary');
         $agent   = $this->rc->config->get('enigma_pgp_agent');
+        $gpgconf = $this->rc->config->get('enigma_pgp_gpgconf');
 
         if (!$homedir) {
             return new enigma_error(enigma_error::INTERNAL,
@@ -88,6 +90,9 @@ class enigma_driver_gnupg extends enigma_driver
         if ($agent) {
             $options['agent'] = $agent;
         }
+        if ($gpgconf) {
+            $options['gpgconf'] = $gpgconf;
+        }
 
         // Create Crypt_GPG object
         try {
@@ -116,7 +121,13 @@ class enigma_driver_gnupg extends enigma_driver
 
             if ($sign_key) {
                 $this->gpg->addSignKey($sign_key->reference, $sign_key->password);
-                return $this->gpg->encryptAndSign($text, true);
+
+                $res     = $this->gpg->encryptAndSign($text, true);
+                $sigInfo = $this->gpg->getLastSignatureInfo();
+
+                $this->last_sig_algorithm = $sigInfo->getHashAlgorithmName();
+
+                return $res;
             }
 
             return $this->gpg->encrypt($text, true);
@@ -168,7 +179,13 @@ class enigma_driver_gnupg extends enigma_driver
     {
         try {
             $this->gpg->addSignKey($key->reference, $key->password);
-            return $this->gpg->sign($text, $mode, CRYPT_GPG::ARMOR_ASCII, true);
+
+            $res     = $this->gpg->sign($text, $mode, CRYPT_GPG::ARMOR_ASCII, true);
+            $sigInfo = $this->gpg->getLastSignatureInfo();
+
+            $this->last_sig_algorithm = $sigInfo->getHashAlgorithmName();
+
+            return $res;
         }
         catch (Exception $e) {
             return $this->get_error_from_exception($e);
@@ -197,14 +214,20 @@ class enigma_driver_gnupg extends enigma_driver
     /**
      * Key file import.
      *
-     * @param string  File name or file content
-     * @param bollean True if first argument is a filename
+     * @param string File name or file content
+     * @param bolean True if first argument is a filename
+     * @param array  Optional key => password map
      *
      * @return mixed Import status array or enigma_error
      */
-    public function import($content, $isfile=false)
+    public function import($content, $isfile = false, $passwords = array())
     {
         try {
+            // GnuPG 2.1 requires secret key passphrases on import
+            foreach ($passwords as $keyid => $pass) {
+                $this->gpg->addPassphrase($keyid, $pass);
+            }
+
             if ($isfile)
                 return $this->gpg->importKeyFile($content);
             else
@@ -220,15 +243,21 @@ class enigma_driver_gnupg extends enigma_driver
      *
      * @param string Key ID
      * @param bool   Include private key
+     * @param array  Optional key => password map
      *
      * @return mixed Key content or enigma_error
      */
-    public function export($keyid, $with_private = false)
+    public function export($keyid, $with_private = false, $passwords = array())
     {
         try {
             $key = $this->gpg->exportPublicKey($keyid, true);
 
             if ($with_private) {
+                // GnuPG 2.1 requires secret key passphrases on export
+                foreach ($passwords as $_keyid => $pass) {
+                    $this->gpg->addPassphrase($_keyid, $pass);
+                }
+
                 $priv = $this->gpg->exportPrivateKey($keyid, true);
                 $key .= $priv;
             }
@@ -247,7 +276,7 @@ class enigma_driver_gnupg extends enigma_driver
      *
      * @return mixed Array of enigma_key objects or enigma_error
      */
-    public function list_keys($pattern='')
+    public function list_keys($pattern = '')
     {
         try {
             $keys = $this->gpg->getKeys($pattern);
@@ -350,6 +379,17 @@ class enigma_driver_gnupg extends enigma_driver
     }
 
     /**
+     * Returns a name of the hash algorithm used for the last
+     * signing operation.
+     *
+     * @return string Hash algorithm name e.g. sha1
+     */
+    public function signature_algorithm()
+    {
+        return $this->last_sig_algorithm;
+    }
+
+    /**
      * Private key deletion.
      */
     protected function delete_privkey($keyid)
@@ -421,17 +461,20 @@ class enigma_driver_gnupg extends enigma_driver
      */
     protected function parse_signature($sig)
     {
-        $user = $sig->getUserId();
-
         $data = new enigma_signature();
+
         $data->id          = $sig->getId();
         $data->valid       = $sig->isValid();
         $data->fingerprint = $sig->getKeyFingerprint();
         $data->created     = $sig->getCreationDate();
         $data->expires     = $sig->getExpirationDate();
-        $data->name        = $user->getName();
-        $data->comment     = $user->getComment();
-        $data->email       = $user->getEmail();
+
+        // In case of ERRSIG user may not be set
+        if ($user = $sig->getUserId()) {
+            $data->name    = $user->getName();
+            $data->comment = $user->getComment();
+            $data->email   = $user->getEmail();
+        }
 
         return $data;
     }

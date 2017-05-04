@@ -129,18 +129,21 @@ if ($uid) {
         }
     }
 
-    if (empty($MESSAGE->headers->flags['SEEN'])
-        && $MESSAGE->context === null
-        && ($RCMAIL->action == 'show' || ($RCMAIL->action == 'preview' && intval($RCMAIL->config->get('preview_pane_mark_read')) == 0))
-    ) {
-        $RCMAIL->output->command('set_unread_message', $MESSAGE->uid, $mbox_name);
-        $RCMAIL->plugins->exec_hook('message_read', array(
-            'uid'     => $MESSAGE->uid,
-            'mailbox' => $mbox_name,
-            'message' => $MESSAGE,
-        ));
+    if (empty($MESSAGE->headers->flags['SEEN']) && $MESSAGE->context === null) {
+        $v = intval($RCMAIL->config->get('mail_read_time'));
+        if ($v > 0) {
+            $OUTPUT->set_env('mail_read_time', $v);
+        }
+        else if ($v == 0) {
+            $RCMAIL->output->command('set_unread_message', $MESSAGE->uid, $mbox_name);
+            $RCMAIL->plugins->exec_hook('message_read', array(
+                    'uid'     => $MESSAGE->uid,
+                    'mailbox' => $mbox_name,
+                    'message' => $MESSAGE,
+            ));
 
-        $set_seen_flag = true;
+            $set_seen_flag = true;
+        }
     }
 }
 
@@ -170,11 +173,6 @@ if (!empty($set_seen_flag)) {
     }
 }
 
-// Save preview_pane preference, if not set yet (#1490362)
-if ($RCMAIL->action == 'preview' && !$RCMAIL->config->get('preview_pane')) {
-    $RCMAIL->user->save_prefs(array('preview_pane' => true));
-}
-
 exit;
 
 
@@ -185,13 +183,14 @@ function rcmail_message_attachments($attrib)
     $out = $ol = '';
     $attachments = array();
 
-    if (sizeof($MESSAGE->attachments)) {
+    if (count($MESSAGE->attachments)) {
         foreach ($MESSAGE->attachments as $attach_prop) {
             $filename = rcmail_attachment_name($attach_prop, true);
             $filesize = $RCMAIL->message_part_size($attach_prop);
 
             if ($PRINT_MODE) {
-                $ol .= html::tag('li', null, rcube::Q(sprintf("%s (%s)", $filename, $filesize)));
+                $ol .= html::tag('li', array('id' => 'attach' . $attach_prop->mime_id),
+                    rcube::Q(sprintf("%s (%s)", $filename, $filesize)));
             }
             else {
                 if ($attrib['maxlength'] && mb_strlen($filename) > $attrib['maxlength']) {

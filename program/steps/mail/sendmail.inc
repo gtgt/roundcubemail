@@ -12,9 +12,7 @@
  | See the README file for a full license statement.                     |
  |                                                                       |
  | PURPOSE:                                                              |
- |   Compose a new mail message with all headers and attachments         |
- |   and send it using the PEAR::Net_SMTP class or with PHP mail()       |
- |                                                                       |
+ |   Compose a new mail message and send it or store as draft            |
  +-----------------------------------------------------------------------+
  | Author: Thomas Bruederli <roundcube@gmail.com>                        |
  +-----------------------------------------------------------------------+
@@ -44,9 +42,7 @@ if (!isset($COMPOSE['id'])) {
 }
 
 if (!$savedraft) {
-    if (empty($_POST['_to']) && empty($_POST['_cc']) && empty($_POST['_bcc'])
-        && empty($_POST['_subject']) && $_POST['_message']
-    ) {
+    if (empty($_POST['_to']) && empty($_POST['_cc']) && empty($_POST['_bcc']) && $_POST['_message']) {
         $OUTPUT->show_message('sendingfailed', 'error');
         $OUTPUT->send('iframe');
     }
@@ -101,11 +97,14 @@ if (is_numeric($from)) {
     }
 }
 // ... if there is no identity record, this might be a custom from
-else if ($from_string = rcmail_email_input_format($from)) {
-    if (preg_match('/(\S+@\S+)/', $from_string, $m))
-        $from = trim($m[1], '<>');
-    else
-        $from = null;
+else if (($from_string = rcmail_email_input_format($from))
+    && preg_match('/(\S+@\S+)/', $from_string, $m)
+) {
+    $from = trim($m[1], '<>');
+}
+// ... otherwise it's empty or invalid
+else {
+    $from = null;
 }
 
 // check 'From' address (identity may be incomplete)
@@ -171,10 +170,11 @@ if (($max_recipients = (int) $RCMAIL->config->get('max_recipients')) > 0) {
 $dont_override = (array) $RCMAIL->config->get('dont_override');
 $mdn_enabled   = in_array('mdn_default', $dont_override) ? $RCMAIL->config->get('mdn_default') : !empty($_POST['_mdn']);
 $dsn_enabled   = in_array('dsn_default', $dont_override) ? $RCMAIL->config->get('dsn_default') : !empty($_POST['_dsn']);
+$subject       = trim(rcube_utils::get_input_value('_subject', rcube_utils::INPUT_POST, TRUE, $message_charset));
 
-// add subject
-$headers['Subject'] = trim(rcube_utils::get_input_value('_subject', rcube_utils::INPUT_POST, TRUE, $message_charset));
-
+if (strlen($subject)) {
+    $headers['Subject'] = $subject;
+}
 if (!empty($identity_arr['organization'])) {
     $headers['Organization'] = $identity_arr['organization'];
 }
@@ -535,7 +535,7 @@ if (!$savedraft && !$saveonly) {
     $smtp_opts['dsn'] = $dsn_enabled;
 
     $sent = $RCMAIL->deliver_message($MAIL_MIME, $from, $mailto,
-        $smtp_error, $mailbody_file, $smtp_opts);
+        $smtp_error, $mailbody_file, $smtp_opts, true);
 
     // return to compose page if sending failed
     if (!$sent) {
@@ -896,9 +896,6 @@ function rcmail_email_input_format($mailto, $count=false, $check=true)
             $address  = rcube_utils::idn_to_ascii(trim($address, '<>'));
             $result[] = format_email_recipient($address, $name);
             $item     = $address;
-        }
-        else if (trim($item)) {
-            continue;
         }
 
         // check address format

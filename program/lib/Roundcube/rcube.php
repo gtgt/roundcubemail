@@ -39,7 +39,7 @@ class rcube
     const DEBUG_LINE_LENGTH = 4096;
 
     /**
-     * Singleton instace of rcube
+     * Singleton instance of rcube
      *
      * @var rcube
      */
@@ -53,21 +53,21 @@ class rcube
     public $config;
 
     /**
-     * Instace of database class.
+     * Instance of database class.
      *
      * @var rcube_db
      */
     public $db;
 
     /**
-     * Instace of Memcache class.
+     * Instance of Memcache class.
      *
      * @var Memcache
      */
     public $memcache;
 
    /**
-     * Instace of rcube_session class.
+     * Instance of rcube_session class.
      *
      * @var rcube_session
      */
@@ -599,7 +599,7 @@ class rcube
      *
      * @return string Localized text
      */
-    public function gettext($attrib, $domain=null)
+    public function gettext($attrib, $domain = null)
     {
         // load localization files if not done yet
         if (empty($this->texts)) {
@@ -633,18 +633,25 @@ class rcube
             }
         }
 
-        // format output
-        if (($attrib['uppercase'] && strtolower($attrib['uppercase'] == 'first')) || $attrib['ucfirst']) {
-            return ucfirst($text);
+        // replace \n with real line break
+        $text = strtr($text, array('\n' => "\n"));
+
+        // case folding
+        if (($attrib['uppercase'] && strtolower($attrib['uppercase']) == 'first') || $attrib['ucfirst']) {
+            $case_mode = MB_CASE_TITLE;
         }
         else if ($attrib['uppercase']) {
-            return mb_strtoupper($text);
+            $case_mode = MB_CASE_UPPER;
         }
         else if ($attrib['lowercase']) {
-            return mb_strtolower($text);
+            $case_mode = MB_CASE_LOWER;
         }
 
-        return strtr($text, array('\n' => "\n"));
+        if (isset($case_mode)) {
+            $text = mb_convert_case($text, $case_mode);
+        }
+
+        return $text;
     }
 
     /**
@@ -799,7 +806,7 @@ class rcube
     {
         static $sa_languages = array();
 
-        if (!sizeof($sa_languages)) {
+        if (!count($sa_languages)) {
             @include(RCUBE_LOCALIZATION_DIR . 'index.inc');
 
             if ($dh = @opendir(RCUBE_LOCALIZATION_DIR)) {
@@ -1172,6 +1179,8 @@ class rcube
      *
      * @param string $name Name of the log file
      * @param mixed  $line Line to append
+     *
+     * @return bool True on success, False on failure
      */
     public static function write_log($name, $line)
     {
@@ -1209,14 +1218,19 @@ class rcube
 
         if ($log_driver == 'syslog') {
             $prio = $name == 'errors' ? LOG_ERR : LOG_INFO;
-            syslog($prio, $line);
-            return true;
+            return syslog($prio, $line);
+        }
+
+        // write message with file name when configured to log to STDOUT
+        if ($log_driver == 'stdout') {
+            $stdout = "php://stdout";
+            $line = "$name: $line";
+            return file_put_contents($stdout, $line, FILE_APPEND) !== false;
         }
 
         // log_driver == 'file' is assumed here
 
         $line = sprintf("[%s]: %s\n", $date, $line);
-        $log_dir = null;
 
         // per-user logging is activated
         if (self::$instance && self::$instance->config->get('per_user_logging', false) && self::$instance->get_user_id()) {
@@ -1322,7 +1336,6 @@ class rcube
 
         // write error to local log file
         if (($level & 1) || !empty($arg_arr['fatal'])) {
-            $post_query = '';
             if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 foreach (array('_task', '_action') as $arg) {
                     if ($_POST[$arg] && !$_GET[$arg]) {
@@ -1572,10 +1585,12 @@ class rcube
      * @param string $body_file Location of file with saved message body (reference),
      *                          used when delay_file_io is enabled
      * @param array  $options   SMTP options (e.g. DSN request)
+     * @param bool   $disconnect Close SMTP connection ASAP
      *
      * @return boolean Send status.
      */
-    public function deliver_message(&$message, $from, $mailto, &$error, &$body_file = null, $options = null)
+    public function deliver_message(&$message, $from, $mailto, &$error,
+        &$body_file = null, $options = null, $disconnect = false)
     {
         $plugin = $this->plugins->exec_hook('message_before_send', array(
             'message' => $message,
@@ -1653,7 +1668,7 @@ class rcube
             $this->plugins->exec_hook('message_send_error', $plugin + array('error' => $error));
         }
         else {
-            $this->plugins->exec_hook('message_sent', array('headers' => $headers, 'body' => $msg_body));
+            $this->plugins->exec_hook('message_sent', array('headers' => $headers, 'body' => $msg_body, 'message' => $message));
 
             // remove MDN headers after sending
             unset($headers['Return-Receipt-To'], $headers['Disposition-Notification-To']);
@@ -1673,6 +1688,10 @@ class rcube
 
         if (is_resource($msg_body)) {
             fclose($msg_body);
+        }
+
+        if ($disconnect) {
+            $this->smtp->disconnect();
         }
 
         $message->headers($headers, true);

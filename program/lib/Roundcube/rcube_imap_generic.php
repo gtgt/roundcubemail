@@ -50,10 +50,10 @@ class rcube_imap_generic
 
     protected $fp;
     protected $host;
-    protected $prefs;
     protected $cmd_tag;
     protected $cmd_num = 0;
     protected $resourceid;
+    protected $prefs             = array();
     protected $logged            = false;
     protected $capability        = array();
     protected $capability_readed = false;
@@ -114,8 +114,7 @@ class rcube_imap_generic
         $res = fwrite($this->fp, $string);
 
         if ($res === false) {
-            @fclose($this->fp);
-            $this->fp = null;
+            $this->closeSocket();
         }
 
         return $res;
@@ -542,6 +541,14 @@ class rcube_imap_generic
                 // RFC2195: CRAM-MD5
                 $ipad = '';
                 $opad = '';
+                $xor  = function($str1, $str2) {
+                    $result = '';
+                    $size   = strlen($str1);
+                    for ($i=0; $i<$size; $i++) {
+                        $result .= chr(ord($str1[$i]) ^ ord($str2[$i]));
+                    }
+                    return $result;
+                };
 
                 // initialize ipad, opad
                 for ($i=0; $i<64; $i++) {
@@ -550,14 +557,11 @@ class rcube_imap_generic
                 }
 
                 // pad $pass so it's 64 bytes
-                $padLen = 64 - strlen($pass);
-                for ($i=0; $i<$padLen; $i++) {
-                    $pass .= chr(0);
-                }
+                $pass = str_pad($pass, 64, chr(0));
 
                 // generate hash
-                $hash  = md5($this->_xor($pass, $opad) . pack("H*",
-                    md5($this->_xor($pass, $ipad) . base64_decode($challenge))));
+                $hash  = md5($xor($pass, $opad) . pack("H*",
+                    md5($xor($pass, $ipad) . base64_decode($challenge))));
                 $reply = base64_encode($user . ' ' . $hash);
 
                 // send result
@@ -805,7 +809,7 @@ class rcube_imap_generic
      *
      * @return bool True on success, False on failure
      */
-    public function connect($host, $user, $password, $options = null)
+    public function connect($host, $user, $password, $options = array())
     {
         // configure
         $this->set_prefs($options);
@@ -850,6 +854,7 @@ class rcube_imap_generic
             if ($auth_caps = $this->getCapability('AUTH')) {
                 $auth_methods = $auth_caps;
             }
+
             // RFC 2595 (LOGINDISABLED) LOGIN disabled when connection is not secure
             $login_disabled = $this->getCapability('LOGINDISABLED');
             if (($key = array_search('LOGIN', $auth_methods)) !== false) {
@@ -862,7 +867,12 @@ class rcube_imap_generic
             }
 
             // Use best (for security) supported authentication method
-            $all_methods = array('GSSAPI', 'DIGEST-MD5', 'CRAM-MD5', 'CRAM_MD5', 'PLAIN', 'LOGIN');
+            $all_methods = array('DIGEST-MD5', 'CRAM-MD5', 'CRAM_MD5', 'PLAIN', 'LOGIN');
+
+            if (!empty($this->prefs['gssapi_cn'])) {
+                array_unshift($all_methods, 'GSSAPI');
+            }
+
             foreach ($all_methods as $auth_method) {
                 if (in_array($auth_method, $auth_methods)) {
                     break;
@@ -2028,7 +2038,7 @@ class rcube_imap_generic
         $request = "$key $cmd $message_set (" . implode(' ', $fields) . ")";
 
         if (!$this->putLine($request)) {
-            $this->setError(self::ERROR_COMMAND, "Unable to send command: $request");
+            $this->setError(self::ERROR_COMMAND, "Failed to send $cmd command");
             return false;
         }
 
@@ -2357,15 +2367,15 @@ class rcube_imap_generic
         $result      = array();
 
         $key      = $this->nextTag();
-        $request  = $key . ($is_uid ? ' UID' : '') . " FETCH $message_set ";
-        $request .= "(" . implode(' ', $query_items) . ")";
+        $cmd      = ($is_uid ? 'UID ' : '') . 'FETCH';
+        $request  = "$key $cmd $message_set (" . implode(' ', $query_items) . ")";
 
         if ($mod_seq !== null && $this->hasCapability('CONDSTORE')) {
             $request .= " (CHANGEDSINCE $mod_seq" . ($vanished ? " VANISHED" : '') .")";
         }
 
         if (!$this->putLine($request)) {
-            $this->setError(self::ERROR_COMMAND, "Unable to send command: $request");
+            $this->setError(self::ERROR_COMMAND, "Failed to send $cmd command");
             return false;
         }
 
@@ -2634,7 +2644,7 @@ class rcube_imap_generic
 
         reset($messages);
 
-        while (list($key, $headers) = each($messages)) {
+        foreach ($messages as $key => $headers) {
             $value = null;
 
             switch ($field) {
@@ -2676,7 +2686,7 @@ class rcube_imap_generic
             }
 
             // form new array based on index
-            while (list($key, $val) = each($index)) {
+            foreach ($index as $key => $val) {
                 $result[$key] = $messages[$key];
             }
         }
@@ -2716,7 +2726,7 @@ class rcube_imap_generic
 
         // send request
         if (!$this->putLine($request)) {
-            $this->setError(self::ERROR_COMMAND, "Unable to send command: $request");
+            $this->setError(self::ERROR_COMMAND, "Failed to send UID FETCH command");
             return false;
         }
 
@@ -2784,14 +2794,15 @@ class rcube_imap_generic
 
                 // format request
                 $key       = $this->nextTag();
-                $request   = $key . ($is_uid ? ' UID' : '') . " FETCH $id ($fetch_mode.PEEK[$part]$partial)";
+                $cmd       = ($is_uid ? 'UID ' : '') . 'FETCH';
+                $request   = "$key $cmd $id ($fetch_mode.PEEK[$part]$partial)";
                 $result    = false;
                 $found     = false;
                 $initiated = true;
 
                 // send request
                 if (!$this->putLine($request)) {
-                    $this->setError(self::ERROR_COMMAND, "Unable to send command: $request");
+                    $this->setError(self::ERROR_COMMAND, "Failed to send $cmd command");
                     return false;
                 }
 
@@ -2992,65 +3003,66 @@ class rcube_imap_generic
         $request .= ' ' . ($binary ? '~' : '') . '{' . $len . ($literal_plus ? '+' : '') . '}';
 
         // send APPEND command
-        if ($this->putLine($request)) {
-            // Do not wait when LITERAL+ is supported
-            if (!$literal_plus) {
-                $line = $this->readReply();
-
-                if ($line[0] != '+') {
-                    $this->parseResult($line, 'APPEND: ');
-                    return false;
-                }
-            }
-
-            foreach ($msg as $msg_part) {
-                // file pointer
-                if (is_resource($msg_part)) {
-                    rewind($msg_part);
-                    while (!feof($msg_part) && $this->fp) {
-                        $buffer = fread($msg_part, $chunk_size);
-                        $this->putLine($buffer, false);
-                    }
-                    fclose($msg_part);
-                }
-                // string
-                else {
-                    $size = strlen($msg_part);
-
-                    // Break up the data by sending one chunk (up to 512k) at a time.
-                    // This approach reduces our peak memory usage
-                    for ($offset = 0; $offset < $size; $offset += $chunk_size) {
-                        $chunk = substr($msg_part, $offset, $chunk_size);
-                        if (!$this->putLine($chunk, false)) {
-                            return false;
-                        }
-                    }
-                }
-            }
-
-            if (!$this->putLine('')) { // \r\n
-                return false;
-            }
-
-            do {
-                $line = $this->readLine();
-            } while (!$this->startsWith($line, $key, true, true));
-
-            // Clear internal status cache
-            unset($this->data['STATUS:'.$mailbox]);
-
-            if ($this->parseResult($line, 'APPEND: ') != self::ERROR_OK)
-                return false;
-            else if (!empty($this->data['APPENDUID']))
-                return $this->data['APPENDUID'];
-            else
-                return true;
-        }
-        else {
-            $this->setError(self::ERROR_COMMAND, "Unable to send command: $request");
+        if (!$this->putLine($request)) {
+            $this->setError(self::ERROR_COMMAND, "Failed to send APPEND command");
+            return false;
         }
 
-        return false;
+        // Do not wait when LITERAL+ is supported
+        if (!$literal_plus) {
+            $line = $this->readReply();
+
+            if ($line[0] != '+') {
+                $this->parseResult($line, 'APPEND: ');
+                return false;
+            }
+        }
+
+        foreach ($msg as $msg_part) {
+            // file pointer
+            if (is_resource($msg_part)) {
+                rewind($msg_part);
+                while (!feof($msg_part) && $this->fp) {
+                    $buffer = fread($msg_part, $chunk_size);
+                    $this->putLine($buffer, false);
+                }
+                fclose($msg_part);
+            }
+            // string
+            else {
+                $size = strlen($msg_part);
+
+                // Break up the data by sending one chunk (up to 512k) at a time.
+                // This approach reduces our peak memory usage
+                for ($offset = 0; $offset < $size; $offset += $chunk_size) {
+                    $chunk = substr($msg_part, $offset, $chunk_size);
+                    if (!$this->putLine($chunk, false)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        if (!$this->putLine('')) { // \r\n
+            return false;
+        }
+
+        do {
+            $line = $this->readLine();
+        } while (!$this->startsWith($line, $key, true, true));
+
+        // Clear internal status cache
+        unset($this->data['STATUS:'.$mailbox]);
+
+        if ($this->parseResult($line, 'APPEND: ') != self::ERROR_OK) {
+            return false;
+        }
+
+        if (!empty($this->data['APPENDUID'])) {
+            return $this->data['APPENDUID'];
+        }
+
+        return true;
     }
 
     /**
@@ -3619,14 +3631,12 @@ class rcube_imap_generic
             $data['type'] = 'multipart';
         }
         else {
-            $data['type'] = strtolower($part_a[0]);
-
-            // encoding
+            $data['type']     = strtolower($part_a[0]);
             $data['encoding'] = strtolower($part_a[5]);
 
             // charset
             if (is_array($part_a[2])) {
-               while (list($key, $val) = each($part_a[2])) {
+               foreach ($part_a[2] as $key => $val) {
                     if (strcasecmp($val, 'charset') == 0) {
                         $data['charset'] = $part_a[2][$key+1];
                         break;
@@ -3709,7 +3719,10 @@ class rcube_imap_generic
 
         // Send command
         if (!$this->putLineC($query, true, ($options & self::COMMAND_ANONYMIZED))) {
-            $this->setError(self::ERROR_COMMAND, "Unable to send command: $query");
+            preg_match('/^[A-Z0-9]+ ((UID )?[A-Z]+)/', $query, $matches);
+            $cmd = $matches[1] ?: 'UNKNOWN';
+            $this->setError(self::ERROR_COMMAND, "Failed to send $cmd command");
+
             return $noresp ? self::ERROR_COMMAND : array(self::ERROR_COMMAND, '');
         }
 
@@ -3827,6 +3840,9 @@ class rcube_imap_generic
         return $num == 1 ? $result[0] : $result;
     }
 
+    /**
+     * Joins IMAP command line elements (recursively)
+     */
     protected static function r_implode($element)
     {
         $string = '';
@@ -3927,18 +3943,6 @@ class rcube_imap_generic
                 $result[] = (int)$x;
             }
             unset($messages[$idx]);
-        }
-
-        return $result;
-    }
-
-    protected function _xor($string, $string2)
-    {
-        $result = '';
-        $size   = strlen($string);
-
-        for ($i=0; $i<$size; $i++) {
-            $result .= chr(ord($string[$i]) ^ ord($string2[$i]));
         }
 
         return $result;
@@ -4063,7 +4067,7 @@ class rcube_imap_generic
     /**
      * Write the given debug text to the current debug output handler.
      *
-     * @param string $message Debug mesage text.
+     * @param string $message Debug message text.
      *
      * @since 0.5-stable
      */

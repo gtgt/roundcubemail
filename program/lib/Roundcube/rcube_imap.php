@@ -152,6 +152,9 @@ class rcube_imap extends rcube_storage
                 $pass = $data['pass'];
             }
 
+            // Handle per-host socket options
+            rcube_utils::parse_socket_options($data['socket_options'], $data['host']);
+
             $this->conn->connect($data['host'], $data['user'], $pass, $data);
         } while(!$this->conn->connected() && $data['retry']);
 
@@ -305,7 +308,7 @@ class rcube_imap extends rcube_storage
 
     /**
      * Set internal folder reference.
-     * All operations will be perfomed on this folder.
+     * All operations will be performed on this folder.
      *
      * @param string $folder Folder name
      */
@@ -453,6 +456,11 @@ class rcube_imap extends rcube_storage
         $ns = $this->namespace;
 
         if ($name) {
+            // an alias for BC
+            if ($name == 'prefix') {
+                $name = 'prefix_in';
+            }
+
             return isset($ns[$name]) ? $ns[$name] : null;
         }
 
@@ -2790,7 +2798,7 @@ class rcube_imap extends rcube_storage
 
 
     /* --------------------------------
-     *        folder managment
+     *        folder management
      * --------------------------------*/
 
     /**
@@ -3285,48 +3293,47 @@ class rcube_imap extends rcube_storage
     }
 
     /**
-     * Remove folder from server
+     * Remove folder (with subfolders) from the server
      *
      * @param string $folder Folder name
      *
-     * @return boolean True on success
+     * @return boolean True on success, False on failure
      */
     function delete_folder($folder)
     {
-        $delm = $this->get_hierarchy_delimiter();
-
         if (!$this->check_connection()) {
             return false;
         }
 
-        // get list of folders
-        if ((strpos($folder, '%') === false) && (strpos($folder, '*') === false)) {
-            $sub_mboxes = $this->list_folders('', $folder . $delm . '*');
-        }
-        else {
-            $sub_mboxes = $this->list_folders();
-        }
+        $delm = $this->get_hierarchy_delimiter();
 
-        // send delete command to server
-        $result = $this->conn->deleteFolder($folder);
+        // get list of sub-folders or all folders
+        // if folder name contains special characters
+        $path       = strspn($folder, '%*') > 0 ? ($folder . $delm) : '';
+        $sub_mboxes = $this->list_folders('', $path . '*');
 
-        if ($result) {
-            // unsubscribe folder
-            $this->conn->unsubscribe($folder);
-
-            foreach ($sub_mboxes as $c_mbox) {
-                if (strpos($c_mbox, $folder.$delm) === 0) {
-                    $this->conn->unsubscribe($c_mbox);
-                    if ($this->conn->deleteFolder($c_mbox)) {
-                        $this->clear_message_cache($c_mbox);
+        // According to RFC3501 deleting a \Noselect folder
+        // with subfolders may fail. To workaround this we delete
+        // subfolders first (in reverse order) (#5466)
+        if (!empty($sub_mboxes)) {
+            foreach (array_reverse($sub_mboxes) as $mbox) {
+                if (strpos($mbox, $folder . $delm) === 0) {
+                    if ($this->conn->deleteFolder($mbox)) {
+                        $this->conn->unsubscribe($mbox);
+                        $this->clear_message_cache($mbox);
                     }
                 }
             }
-
-            // clear folder-related cache
-            $this->clear_message_cache($folder);
-            $this->clear_cache('mailboxes', true);
         }
+
+        // delete the folder
+        if ($result = $this->conn->deleteFolder($folder)) {
+            // and unsubscribe it
+            $this->conn->unsubscribe($folder);
+            $this->clear_message_cache($folder);
+        }
+
+        $this->clear_cache('mailboxes', true);
 
         return $result;
     }
@@ -4234,7 +4241,7 @@ class rcube_imap extends rcube_storage
      */
     protected function sort_folder_specials($folder, &$list, &$specials, &$out)
     {
-        while (list($key, $name) = each($list)) {
+        foreach ($list as $key => $name) {
             if ($folder === null || strpos($name, $folder.$this->delimiter) === 0) {
                 $out[] = $name;
                 unset($list[$key]);
